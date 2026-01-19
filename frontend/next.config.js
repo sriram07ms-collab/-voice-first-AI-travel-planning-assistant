@@ -9,9 +9,10 @@ const nextConfig = {
   images: {
     unoptimized: true, // Required for static export
   },
-  // Set base path if deploying to a subdirectory
-  // basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
-  // trailingSlash: true, // Optional: for GitHub Pages compatibility
+  // Set base path for GitHub Pages subdirectory deployment
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '/-voice-first-AI-travel-planning-assistant',
+  assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || '/-voice-first-AI-travel-planning-assistant',
+  trailingSlash: true, // Required for GitHub Pages compatibility
 };
 
 module.exports = nextConfig;

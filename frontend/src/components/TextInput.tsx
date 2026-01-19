@@ -1,11 +1,11 @@
 /**
  * Text Input Component
- * Text-based message input for chat interface.
+ * Modern text-based message input for chat interface.
  */
 
 'use client';
 
-import React, { useState, KeyboardEvent } from 'react';
+import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
 
 export interface TextInputProps {
   onSendMessage: (message: string) => void;
@@ -19,6 +19,15 @@ export default function TextInput({
   placeholder = "Type your message..."
 }: TextInputProps) {
   const [message, setMessage] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-resize textarea
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [message]);
 
   const handleSubmit = () => {
     if (!message.trim() || disabled) return;
@@ -26,6 +35,11 @@ export default function TextInput({
     const textToSend = message.trim();
     setMessage('');
     onSendMessage(textToSend);
+    
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -36,9 +50,10 @@ export default function TextInput({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="flex items-end gap-2 bg-white rounded-lg border border-gray-300 p-3 shadow-sm">
+    <div className="w-full">
+      <div className="flex items-end gap-2 bg-white rounded-xl border-2 border-slate-200 p-3 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all duration-200">
         <textarea
+          ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyPress={handleKeyPress}
@@ -46,10 +61,11 @@ export default function TextInput({
           placeholder={placeholder}
           rows={1}
           className="
-            flex-1 resize-none border-none outline-none
-            text-gray-900 placeholder-gray-500
+            flex-1 resize-none border-none outline-none bg-transparent
+            text-slate-900 placeholder-slate-400
             disabled:opacity-50 disabled:cursor-not-allowed
-            max-h-32 overflow-y-auto
+            max-h-32 overflow-y-auto scrollbar-thin
+            text-sm leading-relaxed
           "
           style={{
             minHeight: '24px',
@@ -60,11 +76,13 @@ export default function TextInput({
           onClick={handleSubmit}
           disabled={disabled || !message.trim()}
           className="
-            px-6 py-2 bg-blue-500 text-white rounded-lg
-            hover:bg-blue-600 active:bg-blue-700
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors font-medium
-            flex items-center gap-2
+            px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg
+            hover:from-blue-700 hover:to-indigo-700
+            active:scale-95
+            disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
+            transition-all duration-200 font-semibold text-sm
+            flex items-center gap-2 shadow-md shadow-blue-500/30
+            hover:shadow-lg hover:shadow-blue-500/40
           "
         >
           <span>Send</span>
@@ -83,8 +101,8 @@ export default function TextInput({
           </svg>
         </button>
       </div>
-      <p className="text-xs text-gray-500 mt-2 text-center">
-        Press Enter to send, Shift+Enter for new line
+      <p className="text-xs text-slate-500 mt-2 text-center">
+        Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">Shift+Enter</kbd> for new line
       </p>
     </div>
   );

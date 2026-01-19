@@ -42,6 +42,7 @@ jobs:
       - name: Build Next.js app (static export)
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:8000' }}
+          NEXT_PUBLIC_BASE_PATH: '/-voice-first-AI-travel-planning-assistant'
         run: npm run build
 
       - name: Verify build output
