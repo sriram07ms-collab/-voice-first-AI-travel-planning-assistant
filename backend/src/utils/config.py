@@ -55,12 +55,12 @@ class Settings(BaseSettings):
     
     # CORS Settings
     # Store as string to avoid JSON parsing issues, then parse via computed_field
-    _cors_origins_raw: str = Field(
+    cors_origins_raw: str = Field(
         default="http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003",
         env="CORS_ORIGINS"
     )
     
-    @field_validator('_cors_origins_raw', mode='before')
+    @field_validator('cors_origins_raw', mode='before')
     @classmethod
     def parse_cors_origins(cls, v: Any) -> str:
         """Parse CORS origins from string (comma-separated) or list.
@@ -159,14 +159,14 @@ class Settings(BaseSettings):
     def parse_cors_fields(cls, data: Any) -> Any:
         """Parse CORS fields from comma-separated strings before validation.
         
-        Maps CORS_ORIGINS env var to _cors_origins_raw field to avoid JSON parsing.
+        Maps CORS_ORIGINS env var to cors_origins_raw field to avoid JSON parsing.
         """
         if isinstance(data, dict):
-            # Map CORS_ORIGINS to _cors_origins_raw to avoid JSON parsing
+            # Map CORS_ORIGINS to cors_origins_raw to avoid JSON parsing
             if 'CORS_ORIGINS' in data:
-                data['_cors_origins_raw'] = data.pop('CORS_ORIGINS')
+                data['cors_origins_raw'] = data.pop('CORS_ORIGINS')
             elif 'cors_origins' in data:
-                data['_cors_origins_raw'] = data.pop('cors_origins')
+                data['cors_origins_raw'] = data.pop('cors_origins')
             
             # Handle other CORS fields
             for key, value in list(data.items()):
