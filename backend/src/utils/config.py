@@ -5,9 +5,9 @@ Loads and validates environment variables.
 
 import os
 import json
-from typing import Optional, Union, Any, List, Annotated
-from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings, NoDecode
+from typing import Optional, Union, Any, List
+from pydantic import Field, field_validator, model_validator, computed_field
+from pydantic_settings import BaseSettings
 from functools import lru_cache
 
 
@@ -54,18 +54,18 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, env="PORT")
     
     # CORS Settings
-    # Use NoDecode to prevent pydantic-settings from auto-parsing as JSON
-    # This allows our validator to handle comma-separated strings
-    cors_origins: Annotated[List[str], NoDecode] = Field(
-        default=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"],
+    # Store as string to avoid JSON parsing issues, then parse via computed_field
+    _cors_origins_raw: str = Field(
+        default="http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003",
         env="CORS_ORIGINS"
     )
     
-    @field_validator('cors_origins', mode='before')
+    @field_validator('_cors_origins_raw', mode='before')
     @classmethod
-    def parse_cors_origins(cls, v: Any) -> List[str]:
+    def parse_cors_origins(cls, v: Any) -> str:
         """Parse CORS origins from string (comma-separated) or list.
         
+        Always returns a string (comma-separated) to avoid JSON parsing issues.
         Handles:
         - Comma-separated string: "https://example.com,https://other.com"
         - Single string: "https://example.com"
@@ -73,51 +73,48 @@ class Settings(BaseSettings):
         - List: ["https://example.com"]
         """
         if v is None:
-            return ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
+            return "http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003"
         
         if isinstance(v, list):
-            return v
+            # Convert list to comma-separated string
+            return ",".join(str(item) for item in v if item)
         
         if isinstance(v, str):
             # Try to parse as JSON first (for JSON array strings)
             try:
                 parsed_json = json.loads(v)
                 if isinstance(parsed_json, list):
-                    return [str(item) for item in parsed_json if item]
+                    return ",".join(str(item) for item in parsed_json if item)
                 elif isinstance(parsed_json, str):
                     # Single string in JSON format
-                    return [parsed_json]
+                    return parsed_json
             except (json.JSONDecodeError, ValueError):
-                # Not JSON, treat as comma-separated string
+                # Not JSON, treat as comma-separated string - return as is
                 pass
             
-            # Handle comma-separated string
-            parsed = [item.strip() for item in v.split(',') if item.strip()]
-            return parsed if parsed else ["http://localhost:3000"]
+            # Return the string as-is (already comma-separated or single value)
+            return v.strip() if v.strip() else "http://localhost:3000"
         
-        # Fallback: convert to string and wrap in list
-        return [str(v)]
+        # Fallback: convert to string
+        return str(v)
     
-    @field_validator('cors_origins', mode='after')
-    @classmethod
-    def ensure_dev_ports(cls, v: Any) -> List[str]:
-        """Ensure cors_origins is a list and add dev ports if needed."""
-        # Convert to list if still a string (shouldn't happen after parse_cors_origins, but just in case)
-        if isinstance(v, str):
-            v = [item.strip() for item in v.split(',') if item.strip()]
-        
-        # Ensure it's a list
-        if not isinstance(v, list):
-            v = [str(v)] if v else []
-        
-        if not v:
+    @computed_field
+    def cors_origins(self) -> List[str]:
+        """Parse the raw CORS origins string into a list."""
+        if not self._cors_origins_raw:
             return ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
         
+        # Parse comma-separated string
+        parsed = [item.strip() for item in self._cors_origins_raw.split(',') if item.strip()]
+        
+        if not parsed:
+            return ["http://localhost:3000"]
+        
         # Check if any localhost ports are present
-        has_localhost = any('localhost' in origin.lower() or '127.0.0.1' in origin.lower() for origin in v)
+        has_localhost = any('localhost' in origin.lower() or '127.0.0.1' in origin.lower() for origin in parsed)
         
         if has_localhost:
-            final_origins = list(v)
+            final_origins = list(parsed)
             # Add common development ports if not already present
             default_ports = [3000, 3001, 3002, 3003]
             for port in default_ports:
@@ -126,7 +123,7 @@ class Settings(BaseSettings):
                     final_origins.append(localhost_url)
             return final_origins
         
-        return v
+        return parsed
     cors_allow_credentials: bool = Field(default=True, env="CORS_ALLOW_CREDENTIALS")
     cors_allow_methods: list = Field(
         default=["*"],
@@ -162,40 +159,24 @@ class Settings(BaseSettings):
     def parse_cors_fields(cls, data: Any) -> Any:
         """Parse CORS fields from comma-separated strings before validation.
         
-        This runs before pydantic-settings tries to parse JSON, so we can
-        handle string values before they cause JSON decode errors.
+        Maps CORS_ORIGINS env var to _cors_origins_raw field to avoid JSON parsing.
         """
         if isinstance(data, dict):
-            # Handle both dict from env file and direct dict
+            # Map CORS_ORIGINS to _cors_origins_raw to avoid JSON parsing
+            if 'CORS_ORIGINS' in data:
+                data['_cors_origins_raw'] = data.pop('CORS_ORIGINS')
+            elif 'cors_origins' in data:
+                data['_cors_origins_raw'] = data.pop('cors_origins')
+            
+            # Handle other CORS fields
             for key, value in list(data.items()):
                 key_lower = key.lower()
-                if key_lower in ['cors_origins', 'cors_allow_methods', 'cors_allow_headers']:
+                if key_lower in ['cors_allow_methods', 'cors_allow_headers']:
                     if isinstance(value, str):
-                        # For cors_origins, handle both single string and comma-separated
-                        if key_lower == 'cors_origins':
-                            # Try JSON first, but don't fail if it's not JSON
-                            try:
-                                parsed_json = json.loads(value)
-                                if isinstance(parsed_json, list):
-                                    data[key] = parsed_json
-                                    continue
-                            except (json.JSONDecodeError, ValueError):
-                                # Not JSON, treat as comma-separated string
-                                pass
-                            
-                            # Handle comma-separated string or single string
-                            parsed = [item.strip() for item in value.split(',') if item.strip()]
-                            data[key] = parsed if parsed else [value.strip()]
-                        else:
-                            # For other CORS fields, split by comma
-                            parsed = [item.strip() for item in value.split(',') if item.strip()]
-                            data[key] = parsed if parsed else ["*"]
+                        parsed = [item.strip() for item in value.split(',') if item.strip()]
+                        data[key] = parsed if parsed else ["*"]
                     elif value is None or value == '':
-                        # Use defaults
-                        if key_lower == 'cors_origins':
-                            data[key] = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
-                        else:
-                            data[key] = ["*"]
+                        data[key] = ["*"]
         return data
     
     class Config:
