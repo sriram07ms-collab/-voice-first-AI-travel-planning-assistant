@@ -5,9 +5,9 @@ Loads and validates environment variables.
 
 import os
 import json
-from typing import Optional, Union, Any, List
+from typing import Optional, Union, Any, List, Annotated
 from pydantic import Field, field_validator, model_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
 from functools import lru_cache
 
 
@@ -54,15 +54,16 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, env="PORT")
     
     # CORS Settings
-    # Type is List[str] but validator accepts Union to handle string input
-    cors_origins: List[str] = Field(
+    # Use NoDecode to prevent pydantic-settings from auto-parsing as JSON
+    # This allows our validator to handle comma-separated strings
+    cors_origins: Annotated[List[str], NoDecode] = Field(
         default=["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"],
         env="CORS_ORIGINS"
     )
     
     @field_validator('cors_origins', mode='before')
     @classmethod
-    def parse_cors_origins(cls, v: Any) -> Any:
+    def parse_cors_origins(cls, v: Any) -> List[str]:
         """Parse CORS origins from string (comma-separated) or list.
         
         Handles:
@@ -99,8 +100,16 @@ class Settings(BaseSettings):
     
     @field_validator('cors_origins', mode='after')
     @classmethod
-    def ensure_dev_ports(cls, v: List[str]) -> List[str]:
-        """Ensure common development ports are included."""
+    def ensure_dev_ports(cls, v: Any) -> List[str]:
+        """Ensure cors_origins is a list and add dev ports if needed."""
+        # Convert to list if still a string (shouldn't happen after parse_cors_origins, but just in case)
+        if isinstance(v, str):
+            v = [item.strip() for item in v.split(',') if item.strip()]
+        
+        # Ensure it's a list
+        if not isinstance(v, list):
+            v = [str(v)] if v else []
+        
         if not v:
             return ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
         
