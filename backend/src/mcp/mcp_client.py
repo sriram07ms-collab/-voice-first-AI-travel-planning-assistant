@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 import logging
 
+# Initialize logger first
+logger = logging.getLogger(__name__)
+
 # Add project root to path for MCP tools
 project_root = Path(__file__).parent.parent.parent.parent
 mcp_tools_dir = project_root / "mcp-tools"
@@ -57,8 +60,6 @@ try:
     from src.data_sources.travel_time import calculate_travel_time
 except ImportError:
     from data_sources.travel_time import calculate_travel_time
-
-logger = logging.getLogger(__name__)
 
 
 class MCPClient:
