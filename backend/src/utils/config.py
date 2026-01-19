@@ -53,6 +53,19 @@ class Settings(BaseSettings):
     host: str = Field(default="0.0.0.0", env="HOST")
     port: int = Field(default=8000, env="PORT")
     
+    @field_validator('port', mode='before')
+    @classmethod
+    def parse_port(cls, v: Any) -> int:
+        """Parse port from string or int."""
+        if v is None:
+            return 8000
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except ValueError:
+                return 8000
+        return int(v)
+    
     # CORS Settings
     # Store as string to avoid JSON parsing issues, then parse via computed_field
     cors_origins_raw: str = Field(
@@ -254,8 +267,17 @@ def get_settings() -> Settings:
 
 
 # Validate settings on import
-settings = get_settings()
-
-# Validate required settings
-if not settings.groq_api_key:
-    raise ValueError("GROQ_API_KEY environment variable is required")
+try:
+    settings = get_settings()
+    
+    # Validate required settings
+    if not settings.groq_api_key:
+        raise ValueError("GROQ_API_KEY environment variable is required")
+except Exception as e:
+    import sys
+    print(f"ERROR: Failed to load settings: {e}", file=sys.stderr)
+    print("Please ensure all required environment variables are set:", file=sys.stderr)
+    print("  - GROQ_API_KEY (required)", file=sys.stderr)
+    print("  - PORT (optional, defaults to 8000)", file=sys.stderr)
+    print("  - CORS_ORIGINS (optional)", file=sys.stderr)
+    sys.exit(1)

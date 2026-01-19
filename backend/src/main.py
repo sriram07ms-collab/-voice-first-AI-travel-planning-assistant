@@ -11,7 +11,13 @@ import logging
 import sys
 
 # Import configuration
-from src.utils.config import settings
+try:
+    from src.utils.config import settings
+except Exception as e:
+    import sys
+    print(f"FATAL: Failed to import settings: {e}", file=sys.stderr)
+    sys.exit(1)
+
 from src.utils.logger import setup_logging
 from src.utils.error_handler import error_handler, TravelAssistantException
 from src.middleware.rate_limiter import RateLimiterMiddleware
