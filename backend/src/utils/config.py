@@ -114,11 +114,11 @@ class Settings(BaseSettings):
     @computed_field
     def cors_origins(self) -> List[str]:
         """Parse the raw CORS origins string into a list."""
-        if not self._cors_origins_raw:
+        if not self.cors_origins_raw:
             return ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
         
         # Parse comma-separated string
-        parsed = [item.strip() for item in self._cors_origins_raw.split(',') if item.strip()]
+        parsed = [item.strip() for item in self.cors_origins_raw.split(',') if item.strip()]
         
         if not parsed:
             return ["http://localhost:3000"]
