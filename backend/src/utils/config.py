@@ -125,14 +125,68 @@ class Settings(BaseSettings):
         
         return parsed
     cors_allow_credentials: bool = Field(default=True, env="CORS_ALLOW_CREDENTIALS")
-    cors_allow_methods: list = Field(
-        default=["*"],
+    
+    # Store as strings to avoid JSON parsing issues
+    cors_allow_methods_raw: str = Field(
+        default="*",
         env="CORS_ALLOW_METHODS"
     )
-    cors_allow_headers: list = Field(
-        default=["*"],
+    cors_allow_headers_raw: str = Field(
+        default="*",
         env="CORS_ALLOW_HEADERS"
     )
+    
+    @field_validator('cors_allow_methods_raw', mode='before')
+    @classmethod
+    def parse_cors_methods(cls, v: Any) -> str:
+        """Parse CORS methods from string or list."""
+        if v is None:
+            return "*"
+        if isinstance(v, list):
+            return ",".join(str(item) for item in v if item)
+        if isinstance(v, str):
+            try:
+                parsed_json = json.loads(v)
+                if isinstance(parsed_json, list):
+                    return ",".join(str(item) for item in parsed_json if item)
+            except (json.JSONDecodeError, ValueError):
+                pass
+            return v.strip() if v.strip() else "*"
+        return str(v)
+    
+    @field_validator('cors_allow_headers_raw', mode='before')
+    @classmethod
+    def parse_cors_headers(cls, v: Any) -> str:
+        """Parse CORS headers from string or list."""
+        if v is None:
+            return "*"
+        if isinstance(v, list):
+            return ",".join(str(item) for item in v if item)
+        if isinstance(v, str):
+            try:
+                parsed_json = json.loads(v)
+                if isinstance(parsed_json, list):
+                    return ",".join(str(item) for item in parsed_json if item)
+            except (json.JSONDecodeError, ValueError):
+                pass
+            return v.strip() if v.strip() else "*"
+        return str(v)
+    
+    @computed_field
+    def cors_allow_methods(self) -> List[str]:
+        """Parse the raw CORS methods string into a list."""
+        if not self.cors_allow_methods_raw:
+            return ["*"]
+        parsed = [item.strip() for item in self.cors_allow_methods_raw.split(',') if item.strip()]
+        return parsed if parsed else ["*"]
+    
+    @computed_field
+    def cors_allow_headers(self) -> List[str]:
+        """Parse the raw CORS headers string into a list."""
+        if not self.cors_allow_headers_raw:
+            return ["*"]
+        parsed = [item.strip() for item in self.cors_allow_headers_raw.split(',') if item.strip()]
+        return parsed if parsed else ["*"]
     
     # Rate Limiting
     rate_limit_per_minute: int = Field(default=60, env="RATE_LIMIT_PER_MINUTE")
@@ -159,24 +213,26 @@ class Settings(BaseSettings):
     def parse_cors_fields(cls, data: Any) -> Any:
         """Parse CORS fields from comma-separated strings before validation.
         
-        Maps CORS_ORIGINS env var to cors_origins_raw field to avoid JSON parsing.
+        Maps CORS env vars to _raw fields to avoid JSON parsing.
         """
         if isinstance(data, dict):
-            # Map CORS_ORIGINS to cors_origins_raw to avoid JSON parsing
+            # Map CORS_ORIGINS to cors_origins_raw
             if 'CORS_ORIGINS' in data:
                 data['cors_origins_raw'] = data.pop('CORS_ORIGINS')
             elif 'cors_origins' in data:
                 data['cors_origins_raw'] = data.pop('cors_origins')
             
-            # Handle other CORS fields
-            for key, value in list(data.items()):
-                key_lower = key.lower()
-                if key_lower in ['cors_allow_methods', 'cors_allow_headers']:
-                    if isinstance(value, str):
-                        parsed = [item.strip() for item in value.split(',') if item.strip()]
-                        data[key] = parsed if parsed else ["*"]
-                    elif value is None or value == '':
-                        data[key] = ["*"]
+            # Map CORS_ALLOW_METHODS to cors_allow_methods_raw
+            if 'CORS_ALLOW_METHODS' in data:
+                data['cors_allow_methods_raw'] = data.pop('CORS_ALLOW_METHODS')
+            elif 'cors_allow_methods' in data:
+                data['cors_allow_methods_raw'] = data.pop('cors_allow_methods')
+            
+            # Map CORS_ALLOW_HEADERS to cors_allow_headers_raw
+            if 'CORS_ALLOW_HEADERS' in data:
+                data['cors_allow_headers_raw'] = data.pop('CORS_ALLOW_HEADERS')
+            elif 'cors_allow_headers' in data:
+                data['cors_allow_headers_raw'] = data.pop('cors_allow_headers')
         return data
     
     class Config:
