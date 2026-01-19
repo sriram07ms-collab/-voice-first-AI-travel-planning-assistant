@@ -177,10 +177,15 @@ Railway automatically uses `/health` endpoint for health checks.
 3. **Connect your GitHub repository**
 4. **Configure:**
    - **Name:** `travel-assistant-backend`
-   - **Environment:** `Python 3`
-   - **Build Command:** `cd backend && pip install -r requirements.txt`
+   - **Environment:** `Python 3` (will use `runtime.txt` or `PYTHON_VERSION` env var)
+   - **Build Command:** `cd backend && python setup_python_version.py && pip install --upgrade pip && pip install --prefer-binary -r requirements.txt`
    - **Start Command:** `cd backend && python -m uvicorn src.main:app --host 0.0.0.0 --port $PORT`
    - **Plan:** Free (or paid for better performance)
+
+**Note:** 
+- The `runtime.txt` file in the `backend` folder pins Python to 3.11.9 by default
+- You can override by setting `PYTHON_VERSION` environment variable (e.g., `3.11.9` or `3.12.0`)
+- Python 3.11.9 has better pre-built wheel support and avoids Rust compilation issues
 
 #### Step 2: Environment Variables
 
@@ -309,6 +314,7 @@ If you see CORS errors:
 - Check Python version (3.9+)
 - Verify `requirements.txt` is correct
 - Check build logs for specific errors
+- **If Rust/maturin error**: Ensure `backend/runtime.txt` exists with `python-3.11.9` to use Python 3.11 (better wheel support than 3.13)
 
 **Problem: App crashes on startup**
 - Check environment variables are set
