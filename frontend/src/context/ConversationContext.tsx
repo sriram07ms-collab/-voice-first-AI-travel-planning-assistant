@@ -5,6 +5,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
+import { apiClient } from '../services/api';
 
 // Types
 interface Message {
@@ -99,9 +100,6 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     }));
 
     try {
-      // Import API client dynamically to avoid SSR issues
-      const { apiClient } = await import('../services/api');
-      
       // Call API
       const data = await apiClient.sendMessage({
         message,

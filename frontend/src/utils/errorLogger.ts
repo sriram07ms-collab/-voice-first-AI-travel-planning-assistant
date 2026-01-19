@@ -40,9 +40,11 @@ class ErrorLogger {
 
   private loadLogs(): void {
     try {
-      const stored = localStorage.getItem('frontend_error_logs');
-      if (stored) {
-        this.logs = JSON.parse(stored).slice(-this.maxLogs);
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem('frontend_error_logs');
+        if (stored) {
+          this.logs = JSON.parse(stored).slice(-this.maxLogs);
+        }
       }
     } catch (e) {
       console.warn('Failed to load error logs from localStorage', e);
@@ -51,7 +53,9 @@ class ErrorLogger {
 
   private saveLogs(): void {
     try {
-      localStorage.setItem('frontend_error_logs', JSON.stringify(this.logs.slice(-this.maxLogs)));
+      if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+        localStorage.setItem('frontend_error_logs', JSON.stringify(this.logs.slice(-this.maxLogs)));
+      }
       
       // Also log to console for development (readable format)
       if (process.env.NODE_ENV === 'development') {
@@ -209,7 +213,9 @@ class ErrorLogger {
 
   clearLogs(): void {
     this.logs = [];
-    localStorage.removeItem('frontend_error_logs');
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.removeItem('frontend_error_logs');
+    }
   }
 
   exportLogs(): string {

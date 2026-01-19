@@ -14,7 +14,7 @@ import ItineraryView from '../components/ItineraryView';
 import SourcesView from '../components/SourcesView';
 import ExplanationPanel from '../components/ExplanationPanel';
 import { apiClient } from '../services/api';
-import type { ExplainRequest, EditRequest } from '../types';
+import type { ExplainRequest, EditRequest, GeneratePDFRequest } from '../types';
 
 function TravelAssistantContent() {
   const {
@@ -128,7 +128,6 @@ function TravelAssistantContent() {
     setError(null);
 
     try {
-      const { GeneratePDFRequest } = await import('../types');
       const request: GeneratePDFRequest = {
         session_id: sessionId,
         email: email,

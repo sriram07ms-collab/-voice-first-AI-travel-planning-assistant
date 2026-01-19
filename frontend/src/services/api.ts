@@ -53,7 +53,7 @@ class ApiClient {
         if (error.response) {
           // Server responded with error
           const errorData = error.response.data;
-          const errorMessage = typeof errorData === 'string' ? errorData : (errorData?.message || errorData?.detail || 'API Error');
+          const errorMessage = typeof errorData === 'string' ? errorData : (errorData?.message || 'API Error');
           const status = error.response.status;
           
           errorLogger.logError(
