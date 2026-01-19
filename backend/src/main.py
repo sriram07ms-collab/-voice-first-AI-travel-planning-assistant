@@ -130,6 +130,21 @@ async def health_check():
         "debug": settings.debug
     }
 
+@app.get("/api/cors-config", tags=["Debug"])
+async def get_cors_config():
+    """
+    Debug endpoint to show current CORS configuration.
+    Useful for troubleshooting CORS issues.
+    """
+    return {
+        "cors_origins": settings.cors_origins,
+        "cors_origins_raw": settings.cors_origins_raw,
+        "cors_allow_credentials": settings.cors_allow_credentials,
+        "cors_allow_methods": settings.cors_allow_methods,
+        "cors_allow_headers": settings.cors_allow_headers,
+        "note": "Check that 'cors_origins' includes your frontend URL (e.g., https://sriram07ms-collab.github.io)"
+    }
+
 
 # Main chat endpoint
 @app.post("/api/chat", tags=["Chat"], response_model=Union[ChatResponse, ErrorResponse])
