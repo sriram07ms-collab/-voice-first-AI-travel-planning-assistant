@@ -1,0 +1,155 @@
+{
+  "name": "Travel Itinerary PDF & Email (No Env Vars)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-pdf",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "webhookId": "generate-pdf"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract itinerary data from webhook body\nconst body = $input.item.json.body || $input.item.json;\n\nconst itinerary = body.itinerary || {};\nconst email = body.email || '';\nconst city = itinerary.city || 'Unknown City';\nconst durationDays = itinerary.duration_days || 1;\nconst pace = itinerary.pace || 'moderate';\n\n// Build HTML for PDF\nlet html = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body { font-family: Arial, sans-serif; margin: 40px; color: #333; }\n    .header { text-align: center; border-bottom: 3px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }\n    .header h1 { color: #1e40af; margin: 0; font-size: 32px; }\n    .header p { color: #666; margin: 10px 0 0 0; }\n    .day-section { margin-bottom: 40px; page-break-inside: avoid; }\n    .day-header { background: #3b82f6; color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }\n    .day-header h2 { margin: 0; font-size: 24px; }\n    .time-block { margin-bottom: 25px; }\n    .time-block h3 { color: #1e40af; font-size: 18px; margin-bottom: 10px; border-left: 4px solid #3b82f6; padding-left: 10px; }\n    .activity { background: #f9fafb; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 15px; border-radius: 4px; }\n    .activity h4 { margin: 0 0 8px 0; color: #1f2937; font-size: 16px; }\n    .activity-meta { font-size: 12px; color: #6b7280; margin-top: 8px; }\n    .sources { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; }\n    .sources h3 { color: #1e40af; margin-bottom: 15px; }\n    .source-item { margin-bottom: 10px; font-size: 14px; }\n    .source-item a { color: #3b82f6; text-decoration: none; }\n    .footer { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px; }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>Trip to ${city}</h1>\n    <p>${durationDays} ${durationDays === 1 ? 'Day' : 'Days'} • ${pace.charAt(0).toUpperCase() + pace.slice(1)} Pace</p>\n  </div>\n`;\n\n// Add day itineraries\nfor (let day = 1; day <= durationDays; day++) {\n  const dayKey = `day_${day}`;\n  const dayItinerary = itinerary[dayKey];\n  \n  if (dayItinerary) {\n    html += `\n  <div class=\"day-section\">\n    <div class=\"day-header\">\n      <h2>Day ${day}</h2>\n    </div>\n`;\n    \n    // Morning\n    if (dayItinerary.morning && dayItinerary.morning.activities && dayItinerary.morning.activities.length > 0) {\n      html += `\n    <div class=\"time-block\">\n      <h3>🌅 Morning</h3>\n`;\n      dayItinerary.morning.activities.forEach(activity => {\n        html += `\n      <div class=\"activity\">\n        <h4>${activity.activity || 'Activity'}</h4>\n        <div class=\"activity-meta\">\n          <strong>Time:</strong> ${activity.time || 'TBD'}<br>\n          <strong>Duration:</strong> ${activity.duration_minutes || 0} minutes\n`;\n        if (activity.travel_time_from_previous && activity.travel_time_from_previous > 0) {\n          html += `          <strong>Travel Time:</strong> ${activity.travel_time_from_previous} minutes<br>\n`;\n        }\n        if (activity.description) {\n          html += `          <p style=\"margin-top: 8px; color: #4b5563;\">${activity.description}</p>\n`;\n        }\n        html += `        </div>\n      </div>\n`;\n      });\n      html += `    </div>\n`;\n    }\n    \n    // Afternoon\n    if (dayItinerary.afternoon && dayItinerary.afternoon.activities && dayItinerary.afternoon.activities.length > 0) {\n      html += `\n    <div class=\"time-block\">\n      <h3>☀️ Afternoon</h3>\n`;\n      dayItinerary.afternoon.activities.forEach(activity => {\n        html += `\n      <div class=\"activity\">\n        <h4>${activity.activity || 'Activity'}</h4>\n        <div class=\"activity-meta\">\n          <strong>Time:</strong> ${activity.time || 'TBD'}<br>\n          <strong>Duration:</strong> ${activity.duration_minutes || 0} minutes\n`;\n        if (activity.travel_time_from_previous && activity.travel_time_from_previous > 0) {\n          html += `          <strong>Travel Time:</strong> ${activity.travel_time_from_previous} minutes<br>\n`;\n        }\n        if (activity.description) {\n          html += `          <p style=\"margin-top: 8px; color: #4b5563;\">${activity.description}</p>\n`;\n        }\n        html += `        </div>\n      </div>\n`;\n      });\n      html += `    </div>\n`;\n    }\n    \n    // Evening\n    if (dayItinerary.evening && dayItinerary.evening.activities && dayItinerary.evening.activities.length > 0) {\n      html += `\n    <div class=\"time-block\">\n      <h3>🌙 Evening</h3>\n`;\n      dayItinerary.evening.activities.forEach(activity => {\n        html += `\n      <div class=\"activity\">\n        <h4>${activity.activity || 'Activity'}</h4>\n        <div class=\"activity-meta\">\n          <strong>Time:</strong> ${activity.time || 'TBD'}<br>\n          <strong>Duration:</strong> ${activity.duration_minutes || 0} minutes\n`;\n        if (activity.travel_time_from_previous && activity.travel_time_from_previous > 0) {\n          html += `          <strong>Travel Time:</strong> ${activity.travel_time_from_previous} minutes<br>\n`;\n        }\n        if (activity.description) {\n          html += `          <p style=\"margin-top: 8px; color: #4b5563;\">${activity.description}</p>\n`;\n        }\n        html += `        </div>\n      </div>\n`;\n      });\n      html += `    </div>\n`;\n    }\n    \n    html += `  </div>\n`;\n  }\n}\n\n// Add sources section\nif (body.sources && body.sources.length > 0) {\n  html += `\n  <div class=\"sources\">\n    <h3>Sources & Citations</h3>\n`;\n  body.sources.forEach(source => {\n    html += `\n    <div class=\"source-item\">\n`;\n    if (source.url) {\n      html += `      <a href=\"${source.url}\" target=\"_blank\">${source.poi || source.topic || 'Source'}</a>\n`;\n    } else {\n      html += `      ${source.poi || source.topic || 'Source'}\n`;\n    }\n    if (source.source_id) {\n      html += ` (${source.source_id})\n`;\n    }\n    html += `    </div>\n`;\n  });\n  html += `  </div>\n`;\n}\n\nhtml += `\n  <div class=\"footer\">\n    <p>Generated by Voice-First Travel Assistant</p>\n    <p>Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>\n  </div>\n</body>\n</html>\n`;\n\nreturn {\n  html: html,\n  email: email,\n  city: city,\n  durationDays: durationDays,\n  itinerary: itinerary,\n  pace: pace\n};"
+      },
+      "id": "generate-html",
+      "name": "Generate HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-API-Key",
+              "value": "YOUR_PDF_API_KEY_HERE"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{ JSON.stringify({\n  source: String($json.html),\n  margin: {\n    top: '20mm',\n    right: '20mm',\n    bottom: '20mm',\n    left: '20mm'\n  },\n  landscape: false,\n  sandbox: false\n}) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data"
+            }
+          }
+        }
+      },
+      "id": "generate-pdf",
+      "name": "Generate PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "webhookId": ""
+    },
+    {
+      "parameters": {
+        "fromEmail": "your-email@gmail.com",
+        "toEmail": "={{ $('Generate HTML').item.json.email }}",
+        "subject": "={{ 'Your Travel Itinerary: ' + $('Generate HTML').item.json.city }}",
+        "emailFormat": "html",
+        "text": "",
+        "html": "={{ (() => {\n  const data = $('Generate HTML').item.json;\n  const itinerary = data.itinerary || {};\n  const city = data.city || 'Unknown City';\n  const durationDays = data.durationDays || 1;\n  const pace = data.pace || 'moderate';\n  \n  let htmlEmail = `\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }\n    .email-container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }\n    .header { text-align: center; border-bottom: 3px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px; }\n    .header h1 { color: #1e40af; margin: 0; font-size: 28px; }\n    .header p { color: #666; margin: 10px 0 0 0; }\n    .intro { margin-bottom: 30px; color: #333; line-height: 1.6; }\n    .day-section { margin-bottom: 35px; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; background: #f9fafb; }\n    .day-header { background: #3b82f6; color: white; padding: 12px 20px; border-radius: 6px; margin: -20px -20px 20px -20px; }\n    .day-header h2 { margin: 0; font-size: 20px; }\n    .time-block { margin-bottom: 20px; }\n    .time-block h3 { color: #1e40af; font-size: 16px; margin-bottom: 12px; border-left: 4px solid #3b82f6; padding-left: 10px; }\n    .activity { background: white; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 12px; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }\n    .activity h4 { margin: 0 0 8px 0; color: #1f2937; font-size: 16px; font-weight: 600; }\n    .activity-meta { font-size: 13px; color: #6b7280; margin-top: 8px; }\n    .activity-meta strong { color: #4b5563; }\n    .activity-description { margin-top: 8px; color: #4b5563; font-style: italic; line-height: 1.5; }\n    .footer { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e5e7eb; text-align: center; color: #6b7280; font-size: 12px; }\n    .pdf-note { background: #eff6ff; border: 1px solid #3b82f6; border-radius: 6px; padding: 15px; margin-bottom: 30px; color: #1e40af; }\n  </style>\n</head>\n<body>\n  <div class=\"email-container\">\n    <div class=\"header\">\n      <h1>Trip to ${city}</h1>\n      <p>${durationDays} ${durationDays === 1 ? 'Day' : 'Days'} • ${pace.charAt(0).toUpperCase() + pace.slice(1)} Pace</p>\n    </div>\n    \n    <div class=\"intro\">\n      <p>Please find your detailed travel itinerary below. A PDF version is attached for your convenience.</p>\n    </div>\n    \n    <div class=\"pdf-note\">\n      <strong>📎 PDF Attachment:</strong> A detailed itinerary PDF has been attached to this email for easy offline access.\n    </div>\n`;\n  \n  // Add day itineraries\n  for (let day = 1; day <= durationDays; day++) {\n    const dayKey = `day_${day}`;\n    const dayItinerary = itinerary[dayKey];\n    \n    if (dayItinerary) {\n      htmlEmail += `\n    <div class=\"day-section\">\n      <div class=\"day-header\">\n        <h2>Day ${day}</h2>\n      </div>\n`;\n      \n      // Morning\n      if (dayItinerary.morning && dayItinerary.morning.activities && dayItinerary.morning.activities.length > 0) {\n        htmlEmail += `\n      <div class=\"time-block\">\n        <h3>🌅 Morning</h3>\n`;\n        dayItinerary.morning.activities.forEach(activity => {\n          htmlEmail += `\n        <div class=\"activity\">\n          <h4>${activity.activity || 'Activity'}</h4>\n          <div class=\"activity-meta\">\n            <strong>Time:</strong> ${activity.time || 'TBD'}<br>\n            <strong>Duration:</strong> ${activity.duration_minutes || 0} minutes`;\n          if (activity.travel_time_from_previous && activity.travel_time_from_previous > 0) {\n            htmlEmail += `<br><strong>Travel Time:</strong> ${activity.travel_time_from_previous} minutes`;\n          }\n          if (activity.description) {\n            htmlEmail += `\n          </div>\n          <div class=\"activity-description\">${activity.description}</div>`;\n          } else {\n            htmlEmail += `\n          </div>`;\n          }\n          htmlEmail += `\n        </div>\n`;\n        });\n        htmlEmail += `\n      </div>\n`;\n      }\n      \n      // Afternoon\n      if (dayItinerary.afternoon && dayItinerary.afternoon.activities && dayItinerary.afternoon.activities.length > 0) {\n        htmlEmail += `\n      <div class=\"time-block\">\n        <h3>☀️ Afternoon</h3>\n`;\n        dayItinerary.afternoon.activities.forEach(activity => {\n          htmlEmail += `\n        <div class=\"activity\">\n          <h4>${activity.activity || 'Activity'}</h4>\n          <div class=\"activity-meta\">\n            <strong>Time:</strong> ${activity.time || 'TBD'}<br>\n            <strong>Duration:</strong> ${activity.duration_minutes || 0} minutes`;\n          if (activity.travel_time_from_previous && activity.travel_time_from_previous > 0) {\n            htmlEmail += `<br><strong>Travel Time:</strong> ${activity.travel_time_from_previous} minutes`;\n          }\n          if (activity.description) {\n            htmlEmail += `\n          </div>\n          <div class=\"activity-description\">${activity.description}</div>`;\n          } else {\n            htmlEmail += `\n          </div>`;\n          }\n          htmlEmail += `\n        </div>\n`;\n        });\n        htmlEmail += `\n      </div>\n`;\n      }\n      \n      // Evening\n      if (dayItinerary.evening && dayItinerary.evening.activities && dayItinerary.evening.activities.length > 0) {\n        htmlEmail += `\n      <div class=\"time-block\">\n        <h3>🌙 Evening</h3>\n`;\n        dayItinerary.evening.activities.forEach(activity => {\n          htmlEmail += `\n        <div class=\"activity\">\n          <h4>${activity.activity || 'Activity'}</h4>\n          <div class=\"activity-meta\">\n            <strong>Time:</strong> ${activity.time || 'TBD'}<br>\n            <strong>Duration:</strong> ${activity.duration_minutes || 0} minutes`;\n          if (activity.travel_time_from_previous && activity.travel_time_from_previous > 0) {\n            htmlEmail += `<br><strong>Travel Time:</strong> ${activity.travel_time_from_previous} minutes`;\n          }\n          if (activity.description) {\n            htmlEmail += `\n          </div>\n          <div class=\"activity-description\">${activity.description}</div>`;\n          } else {\n            htmlEmail += `\n          </div>`;\n          }\n          htmlEmail += `\n        </div>\n`;\n        });\n        htmlEmail += `\n      </div>\n`;\n      }\n      \n      htmlEmail += `\n    </div>\n`;\n    }\n  }\n  \n  htmlEmail += `\n    <div class=\"footer\">\n      <p>Generated by Voice-First Travel Assistant</p>\n      <p>Enjoy your trip to ${city}! 🎉</p>\n    </div>\n  </div>\n</body>\n</html>\n`;\n  \n  return htmlEmail;\n})() }}",
+        "attachments": "={{ (() => {\n  try {\n    // The Generate PDF node outputs binary data with property name 'data'\n    // When outputPropertyName is 'data', binary is accessed as $binary.data.data\n    \n    // Primary method: $binary.data.data (recommended in n8n docs)\n    if ($binary && $binary.data && $binary.data.data) {\n      return [{\n        name: 'itinerary.pdf',\n        data: $binary.data.data,\n        type: 'application/pdf'\n      }];\n    }\n    \n    // Fallback 1: Direct node reference $('Generate PDF').item.binary.data\n    const pdfNode = $('Generate PDF');\n    if (pdfNode && pdfNode.item && pdfNode.item.binary && pdfNode.item.binary.data) {\n      const binaryData = pdfNode.item.binary.data.data || pdfNode.item.binary.data;\n      return [{\n        name: 'itinerary.pdf',\n        data: binaryData,\n        type: 'application/pdf'\n      }];\n    }\n    \n    // Fallback 2: Try $binary.data (for different n8n versions)\n    if ($binary && $binary.data) {\n      return [{\n        name: 'itinerary.pdf',\n        data: $binary.data,\n        type: 'application/pdf'\n      }];\n    }\n    \n    // Fallback 3: Try input item binary\n    if ($input && $input.item && $input.item.binary && $input.item.binary.data) {\n      const inputBinary = $input.item.binary.data.data || $input.item.binary.data;\n      return [{\n        name: 'itinerary.pdf',\n        data: inputBinary,\n        type: 'application/pdf'\n      }];\n    }\n    \n    console.log('WARNING: PDF binary data not found - email will be sent without attachment');\n    console.log('Binary keys:', $binary ? Object.keys($binary) : 'no binary');\n    \n    // Return empty array - email will be sent without PDF\n    return [];\n  } catch (error) {\n    console.log('Error in attachment configuration:', error.message);\n    return [];\n  }\n})() }}",
+        "options": {}
+      },
+      "id": "send-email",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [850, 300],
+      "credentials": {
+        "smtp": {
+          "id": "smtp-credentials",
+          "name": "SMTP Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'success', message: 'PDF generated and emailed successfully', email_sent: true, email_address: $('Send Email').item.json.toEmail, generated_at: new Date().toISOString() } }}"
+      },
+      "id": "respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Generate HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate HTML": {
+      "main": [
+        [
+          {
+            "node": "Generate PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate PDF": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-15T00:00:00.000Z",
+  "versionId": "1",
+  "notes": "This version uses hardcoded values instead of environment variables. Update 'YOUR_PDF_API_KEY_HERE' and 'your-email@gmail.com' with your actual values."
+}

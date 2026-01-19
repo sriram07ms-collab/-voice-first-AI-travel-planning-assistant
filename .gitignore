@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.env
+venv/
+ENV/
+env/
+.venv
+chroma_db/
+*.db
+
+# Node
+node_modules/
+.next/
+out/
+.env.local
+.env*.local
+.npm
+.eslintcache
+*.log
+yarn-error.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+*.lnk
+
+# Logs
+logs/
+*.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Documentation
+docs/_build/
+docs/.doctrees/
+
+# Deployment
+.vercel
+.railway
+.fly
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.cache/

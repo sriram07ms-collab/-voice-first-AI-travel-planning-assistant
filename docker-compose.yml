@@ -1,0 +1,43 @@
+# Docker Compose for development environment
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: travel-assistant-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DATABASE_URL=${DATABASE_URL:-}
+      - CHROMA_PERSIST_DIR=./chroma_db
+      - DEBUG=true
+      - LOG_LEVEL=INFO
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
+    volumes:
+      - ./backend:/app/backend
+      - ./chroma_db:/app/chroma_db
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Redis for session storage
+  redis:
+    image: redis:7-alpine
+    container_name: travel-assistant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+volumes:
+  redis_data:

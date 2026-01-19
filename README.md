@@ -1,0 +1,368 @@
+# Voice-First AI Travel Planning Assistant
+
+A capstone project building a voice-first AI travel planning assistant that understands spoken trip requests, generates realistic itineraries, allows voice-based edits, and explains decisions with grounded data sources.
+
+## 📋 Table of Contents
+
+- [Project Overview](#project-overview)
+- [Problem Statement](#problem-statement)
+- [Core Capabilities](#core-capabilities)
+- [System Architecture](#system-architecture)
+- [Technology Stack](#technology-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Implementation Guide](#implementation-guide)
+- [Evaluation Criteria](#evaluation-criteria)
+- [Deployment](#deployment)
+
+## 🎯 Project Overview
+
+Build a deployed voice-mode travel planner that:
+- Collects trip preferences conversationally (max 6 clarifying questions)
+- Creates feasible day-wise itineraries grounded in real data
+- Allows voice-based itinerary modifications
+- Explains decisions with citations
+- Generates PDF itineraries via n8n workflow
+
+## 📝 Problem Statement
+
+People don't struggle to find places to visit. They struggle to turn preferences, time constraints, travel effort, weather, and personal pace into a **doable plan**.
+
+This system bridges that gap by providing an AI assistant that creates realistic, grounded, and editable travel plans through natural voice interaction.
+
+## ✨ Core Capabilities
+
+### 1. Voice-Based Trip Planning
+- Accepts spoken inputs: *"Plan a 3-day trip to Jaipur next weekend. I like food and culture, relaxed pace."*
+- Asks clarifying questions only when required (maximum 6)
+- Confirms constraints before generating plan
+
+### 2. Voice-Based Editing
+- Supports edits like:
+  - *"Make Day 2 more relaxed"*
+  - *"Swap the Day 1 evening plan to something indoors"*
+  - *"Reduce travel time"*
+  - *"Add one famous local food place"*
+- Only modifies affected itinerary sections
+
+### 3. Explanation & Reasoning
+- Answers questions:
+  - *"Why did you pick this place?"*
+  - *"Is this plan doable?"*
+  - *"What if it rains?"*
+- Provides grounded explanations with citations
+
+### 4. Companion UI
+- Day-wise itinerary display (Day 1 / Day 2 / Day 3)
+- Morning / Afternoon / Evening blocks
+- Duration and travel time between stops
+- Live transcript display
+- Sources/References section
+
+### 5. PDF Generation & Email (n8n)
+- Generates PDF itinerary
+- Emails to user automatically
+
+## 🏗️ System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         User Interface Layer                      │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
+│  │ Voice Input  │  │ Companion UI │  │ Live Transcript     │   │
+│  │ (STT)        │  │ (Itinerary)  │  │ & Sources Display   │   │
+│  └──────┬───────┘  └──────┬───────┘  └─────────────────────┘   │
+└─────────┼──────────────────┼─────────────────────────────────────┘
+          │                  │
+┌─────────┼──────────────────┼─────────────────────────────────────┐
+│         │  Orchestration Layer (LLM + MCP)                       │
+│  ┌──────▼──────────────────▼─────────────────────┐              │
+│  │  Main Orchestrator (LLM)                      │              │
+│  │  - Intent Recognition                          │              │
+│  │  - Conversation Management                     │              │
+│  │  - Decision Explanation                        │              │
+│  └──────┬──────────────────┬─────────────────────┘              │
+│         │                  │                                     │
+│  ┌──────▼──────┐  ┌────────▼─────────┐  ┌──────────────┐      │
+│  │ POI Search  │  │ Itinerary Builder│  │ Travel Time   │      │
+│  │ MCP Tool    │  │ MCP Tool         │  │ Estimator MCP │      │
+│  └─────────────┘  └──────────────────┘  └──────────────┘      │
+└─────────┼───────────────────────────────────────────────────────┘
+          │
+┌─────────▼───────────────────────────────────────────────────────┐
+│                    Data & Knowledge Layer                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
+│  │ RAG System   │  │ OpenStreetMap│  │ Weather API         │   │
+│  │ (Wikivoyage) │  │ (Overpass)   │  │ (Open-Meteo)        │   │
+│  └──────────────┘  └──────────────┘  └─────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+          │
+┌─────────▼───────────────────────────────────────────────────────┐
+│                    Evaluation Layer                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
+│  │ Feasibility  │  │ Edit         │  │ Grounding &         │   │
+│  │ Evaluator    │  │ Correctness  │  │ Hallucination Check │   │
+│  └──────────────┘  └──────────────┘  └─────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+          │
+┌─────────▼───────────────────────────────────────────────────────┐
+│                    External Services                             │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │ n8n Workflow: PDF Generation + Email                     │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 🔧 Technology Stack
+
+### Frontend
+- **Framework**: Next.js 14+ (React) or Lovable
+- **Styling**: TailwindCSS
+- **Voice**: Web Speech API (speech-to-text)
+- **Deployment**: Vercel / Netlify
+
+### Backend
+- **Framework**: Python FastAPI (recommended) or Node.js/Express
+- **LLM**: Grok API (xAI) - `grok-beta` model
+- **Voice API**: Grok Voice API for speech-to-text
+- **Orchestration**: LangChain / LangGraph
+- **MCP**: Model Context Protocol SDK
+- **Deployment**: Railway / Render / Fly.io
+
+### Data & RAG
+- **Vector DB**: ChromaDB (local) or Pinecone (cloud)
+- **Embeddings**: OpenAI `text-embedding-3-small`
+- **Data Sources**: 
+  - OpenStreetMap (Overpass API)
+  - Wikivoyage / Wikipedia
+  - Open-Meteo API (optional)
+
+### External Services
+- **n8n**: Self-hosted or n8n.cloud
+- **PDF**: Puppeteer / pdfkit
+- **Email**: SMTP / SendGrid
+
+## 📁 Project Structure
+
+```
+voice-first-travel-assistant/
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── VoiceInput.tsx          # Microphone button & STT
+│   │   │   ├── TranscriptDisplay.tsx   # Live transcript
+│   │   │   ├── ItineraryView.tsx       # Day-wise itinerary display
+│   │   │   ├── SourcesView.tsx         # Citations display
+│   │   │   └── ExplanationPanel.tsx    # Why questions
+│   │   ├── hooks/
+│   │   │   └── useSpeechRecognition.ts
+│   │   ├── services/
+│   │   │   └── api.ts                  # Backend API client
+│   │   └── App.tsx
+│   ├── package.json
+│   └── README.md
+│
+├── backend/
+│   ├── src/
+│   │   ├── main.py                     # FastAPI app
+│   │   ├── orchestrator/
+│   │   │   ├── conversation_manager.py # Conversation state
+│   │   │   ├── intent_classifier.py    # Intent recognition
+│   │   │   └── orchestrator.py         # Main LLM coordinator
+│   │   ├── mcp/
+│   │   │   ├── poi_search_mcp.py       # POI Search MCP
+│   │   │   ├── itinerary_builder_mcp.py # Itinerary Builder MCP
+│   │   │   ├── travel_time_mcp.py      # Travel Time MCP (optional)
+│   │   │   └── mcp_client.py           # MCP client wrapper
+│   │   ├── rag/
+│   │   │   ├── vector_store.py         # ChromaDB setup
+│   │   │   ├── retriever.py            # Semantic search
+│   │   │   └── data_loader.py          # Wikivoyage scraper
+│   │   ├── evaluation/
+│   │   │   ├── feasibility_eval.py     # Feasibility checks
+│   │   │   ├── edit_correctness_eval.py # Edit validation
+│   │   │   └── grounding_eval.py       # Grounding checks
+│   │   ├── data_sources/
+│   │   │   ├── openstreetmap.py        # Overpass API client
+│   │   │   ├── wikivoyage.py           # Wikivoyage scraper
+│   │   │   └── weather.py              # Weather API (optional)
+│   │   └── utils/
+│   │       └── config.py               # Configuration
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── README.md
+│
+├── mcp-tools/
+│   ├── poi-search/
+│   │   ├── server.py                   # POI Search MCP server
+│   │   └── requirements.txt
+│   ├── itinerary-builder/
+│   │   ├── server.py                   # Itinerary Builder MCP server
+│   │   └── requirements.txt
+│   └── README.md
+│
+├── n8n-workflows/
+│   ├── pdf-email-workflow.json         # n8n workflow export
+│   └── README.md
+│
+├── tests/
+│   ├── test_feasibility.py
+│   ├── test_grounding.py
+│   └── test_edits.py
+│
+├── docs/
+│   ├── API.md
+│   └── DEPLOYMENT.md
+│
+├── .gitignore
+├── README.md
+└── IMPLEMENTATION_GUIDE.md
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Python 3.10+
+- Node.js 18+
+- Groq API key (get from https://console.groq.com/keys)
+- (Optional) n8n instance
+
+### Environment Variables
+
+Create `.env` files in both `frontend/` and `backend/`:
+
+**backend/.env**:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+GROQ_API_URL=https://api.groq.com/openai/v1
+GROQ_MODEL=llama3-70b-8192  # Best model for quality
+DATABASE_URL=postgresql://...  # Optional for conversation state
+CHROMA_PERSIST_DIR=./chroma_db
+OVERPASS_API_URL=https://overpass-api.de/api/interpreter
+OPEN_METEO_API_URL=https://api.open-meteo.com/v1
+N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/...
+```
+
+**frontend/.env.local**:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+## 📖 Implementation Guide
+
+See [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) for detailed step-by-step implementation instructions.
+
+### Quick Overview
+
+1. **Phase 1**: Project setup and skeleton
+2. **Phase 2**: Data integration (OpenStreetMap, Wikivoyage, RAG)
+3. **Phase 3**: MCP tools implementation
+4. **Phase 4**: Orchestration layer
+5. **Phase 5**: Editing and explanation features
+6. **Phase 6**: Evaluation system
+7. **Phase 7**: Frontend components
+8. **Phase 8**: n8n integration
+9. **Phase 9**: Testing and deployment
+
+## ✅ Evaluation Criteria
+
+### Feasibility Evaluation
+- ✅ Daily duration ≤ available time (9 AM - 10 PM = 13 hours max)
+- ✅ Travel time between stops < 30 min (walking) or < 1 hour (transport)
+- ✅ Pace consistency (relaxed = 2-3 activities/day, moderate = 3-4, fast = 4-5)
+
+### Edit Correctness Evaluation
+- ✅ Only intended day/section modified
+- ✅ Other days unchanged
+- ✅ Edit intent correctly interpreted
+
+### Grounding & Hallucination Evaluation
+- ✅ All POIs have valid OpenStreetMap source_id
+- ✅ All tips cite Wikivoyage URLs
+- ✅ Missing data explicitly stated ("I couldn't find opening hours for X")
+
+## 📊 Data Requirements
+
+### Required Data Sources
+1. **OpenStreetMap (Overpass API)**
+   - Points of Interest (POIs)
+   - Location data (lat/lon)
+   - Categories and metadata
+   - Source IDs for grounding
+
+2. **Wikivoyage / Wikipedia**
+   - City guides and travel tips
+   - Safety information
+   - Cultural context
+   - Indoor alternatives
+
+### Rules
+- All POIs must map back to dataset records
+- Travel tips must come from RAG sources
+- If data is missing, system must explicitly state so
+- No hallucinated claims
+
+## 🔌 MCP Integration Requirements
+
+### Required MCP Tools
+
+1. **POI Search MCP**
+   - Inputs: city, interests, constraints
+   - Outputs: ranked POIs with metadata
+   - Must demonstrate clear MCP calls in demo
+
+2. **Itinerary Builder MCP**
+   - Inputs: candidate POIs, daily time windows, pace
+   - Outputs: structured day-wise itinerary
+
+### Optional MCP Tools (Bonus)
+- Travel Time Estimator MCP
+- Weather Adjustment MCP
+
+## 🚢 Deployment
+
+### Frontend
+- Deploy to Vercel or Netlify
+- Connect to backend API URL
+- Ensure environment variables are set
+
+### Backend
+- Deploy to Railway, Render, or Fly.io
+- Set environment variables
+- Ensure ChromaDB persistence works
+- Health check endpoint: `/health`
+
+### n8n
+- Set up n8n instance (self-hosted or cloud)
+- Import workflow from `n8n-workflows/pdf-email-workflow.json`
+- Configure webhook URL in backend
+
+## 📚 Key Design Decisions
+
+1. **Voice-First**: Primary input is voice (STT), with text fallback
+2. **Grounded Data**: Every recommendation must cite sources
+3. **Edit Scope**: Only modify affected sections, preserve rest
+4. **Conversation Limits**: Max 6 clarifying questions before planning
+5. **Error Handling**: Graceful degradation when data unavailable
+
+## 🎯 Success Metrics
+
+- ✅ System generates feasible itineraries
+- ✅ All POIs grounded in real data
+- ✅ Edits modify only intended sections
+- ✅ Natural voice conversation flow
+- ✅ Accessible via public URL
+- ✅ PDF generation and email working
+
+## 📝 License
+
+This is a capstone project for educational purposes.
+
+## 🤝 Contributing
+
+This is a capstone project. Implementation should follow the step-by-step guide in `IMPLEMENTATION_GUIDE.md`.
+
+---
+
+**Note**: This project must demonstrate real GenAI system capabilities, not just a prompt-based demo. Focus on grounding, evaluation, and user experience.
