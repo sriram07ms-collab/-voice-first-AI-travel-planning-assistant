@@ -47,6 +47,7 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     logger.info(f"Debug mode: {settings.debug}")
     logger.info(f"Log level: {settings.log_level}")
+    logger.info(f"CORS origins: {settings.cors_origins}")
     
     # Initialize services here
     # - Connect to MCP servers

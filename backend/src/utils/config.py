@@ -114,29 +114,36 @@ class Settings(BaseSettings):
     @computed_field
     def cors_origins(self) -> List[str]:
         """Parse the raw CORS origins string into a list."""
+        # Always include GitHub Pages URL for production deployment
+        github_pages_url = "https://sriram07ms-collab.github.io"
+        
         if not self.cors_origins_raw:
-            return ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
+            origins = ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "http://localhost:3003"]
+        else:
+            # Parse comma-separated string
+            parsed = [item.strip() for item in self.cors_origins_raw.split(',') if item.strip()]
+            
+            if not parsed:
+                origins = ["http://localhost:3000"]
+            else:
+                origins = list(parsed)
+                
+                # Check if any localhost ports are present
+                has_localhost = any('localhost' in origin.lower() or '127.0.0.1' in origin.lower() for origin in origins)
+                
+                if has_localhost:
+                    # Add common development ports if not already present
+                    default_ports = [3000, 3001, 3002, 3003]
+                    for port in default_ports:
+                        localhost_url = f"http://localhost:{port}"
+                        if localhost_url not in origins:
+                            origins.append(localhost_url)
         
-        # Parse comma-separated string
-        parsed = [item.strip() for item in self.cors_origins_raw.split(',') if item.strip()]
+        # Always add GitHub Pages URL if not already present
+        if github_pages_url not in origins:
+            origins.append(github_pages_url)
         
-        if not parsed:
-            return ["http://localhost:3000"]
-        
-        # Check if any localhost ports are present
-        has_localhost = any('localhost' in origin.lower() or '127.0.0.1' in origin.lower() for origin in parsed)
-        
-        if has_localhost:
-            final_origins = list(parsed)
-            # Add common development ports if not already present
-            default_ports = [3000, 3001, 3002, 3003]
-            for port in default_ports:
-                localhost_url = f"http://localhost:{port}"
-                if localhost_url not in final_origins:
-                    final_origins.append(localhost_url)
-            return final_origins
-        
-        return parsed
+        return origins
     cors_allow_credentials: bool = Field(default=True, env="CORS_ALLOW_CREDENTIALS")
     
     # Store as strings to avoid JSON parsing issues
