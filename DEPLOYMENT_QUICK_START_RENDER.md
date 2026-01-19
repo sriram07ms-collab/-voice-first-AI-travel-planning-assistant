@@ -177,6 +177,27 @@ This ensures Python 3.11 is used (with pre-built wheels) and forces pip to prefe
 - First request takes ~30 seconds to wake up
 - Consider upgrading to paid ($7/month) for always-on
 
+### ⚠️ CORS Error: "No 'Access-Control-Allow-Origin' header"
+
+**If you see this error in browser console:**
+```
+Access to XMLHttpRequest at 'https://your-backend.onrender.com/api/chat' 
+from origin 'https://yourusername.github.io' has been blocked by CORS policy
+```
+
+**This means:** Your backend doesn't have your frontend URL in its allowed CORS origins.
+
+**Fix:**
+1. Go to Render dashboard → Your backend service → **Environment** tab
+2. Find `CORS_ORIGINS` variable
+3. Add your GitHub Pages URL to the comma-separated list:
+   ```
+   http://localhost:3000,https://yourusername.github.io
+   ```
+4. Click **Save Changes** and wait for redeployment
+
+**See `CORS_FIX_GITHUB_PAGES.md` for detailed instructions.**
+
 **"Build fails" (other errors)**
 - Check **Logs** tab in Render
 - Verify `requirements.txt` is correct
