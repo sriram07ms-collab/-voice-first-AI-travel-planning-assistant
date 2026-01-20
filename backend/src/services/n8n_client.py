@@ -48,15 +48,28 @@ class N8nClient:
             
             if hostname:
                 # Try to resolve the hostname
-                socket.gethostbyname(hostname)
-                logger.info(f"DNS resolution successful for {hostname}")
+                ip = socket.gethostbyname(hostname)
+                logger.info(f"DNS resolution successful for {hostname} -> {ip}")
+                
+                # Check if IP is private/local - might indicate DNS proxy issue
+                ip_parts = ip.split('.')
+                if (ip_parts[0] == '10' or 
+                    (ip_parts[0] == '192' and ip_parts[1] == '168') or
+                    (ip_parts[0] == '172' and 16 <= int(ip_parts[1]) <= 31)):
+                    logger.warning(
+                        f"DNS resolved to private IP ({ip}) for {hostname}. "
+                        f"This might indicate a corporate DNS proxy. "
+                        f"Connection may fail if backend cannot reach this private IP."
+                    )
             else:
                 logger.warning(f"Could not extract hostname from URL: {self.webhook_url}")
         except socket.gaierror as e:
             logger.error(
-                f"DNS resolution failed for {hostname}. "
+                f"DNS resolution failed for webhook URL: {self.webhook_url}. "
+                f"Error: {str(e)}. "
                 f"The domain may not exist or there may be network/DNS issues. "
-                f"Please verify the webhook URL is correct: {self.webhook_url}"
+                f"PDF generation will fail until this is resolved. "
+                f"You can temporarily disable PDF generation by removing N8N_WEBHOOK_URL from .env"
             )
         except Exception as e:
             logger.warning(f"Could not test DNS resolution: {e}")
@@ -235,7 +248,7 @@ class N8nClient:
             
             # Check for DNS resolution errors
             error_str = str(e).lower()
-            if "getaddrinfo failed" in error_str or "name resolution" in error_str or "failed to resolve" in error_str:
+            if "getaddrinfo failed" in error_str or "name resolution" in error_str or "failed to resolve" in error_str or "nameresolutionerror" in error_str:
                 # Try to extract hostname for better error message
                 try:
                     from urllib.parse import urlparse
@@ -244,20 +257,49 @@ class N8nClient:
                 except:
                     hostname = "unknown"
                 
+                # Try to check if DNS resolves but to wrong IP
+                try:
+                    import socket
+                    ip = socket.gethostbyname(hostname)
+                    ip_parts = ip.split('.')
+                    is_private = (ip_parts[0] == '10' or 
+                                 (ip_parts[0] == '192' and ip_parts[1] == '168') or
+                                 (ip_parts[0] == '172' and 16 <= int(ip_parts[1]) <= 31))
+                    
+                    if is_private:
+                        dns_note = (
+                            f"\n⚠️ DNS resolves to private IP ({ip}) which may indicate:\n"
+                            f"   - Corporate DNS proxy redirecting to internal address\n"
+                            f"   - VPN/proxy interfering with DNS resolution\n"
+                            f"   - Network configuration blocking external access\n\n"
+                            f"💡 Solutions:\n"
+                            f"   1. Try accessing from a different network (disable VPN)\n"
+                            f"   2. Use a public DNS server (8.8.8.8 or 1.1.1.1)\n"
+                            f"   3. Check if n8n instance is accessible from browser: https://{hostname}\n"
+                            f"   4. Temporarily disable PDF generation by removing N8N_WEBHOOK_URL from .env\n"
+                        )
+                    else:
+                        dns_note = ""
+                except:
+                    dns_note = ""
+                
                 error_message = (
                     f"DNS resolution failed for n8n webhook URL: {webhook_url}\n\n"
                     f"Possible causes:\n"
                     f"1. The n8n instance domain is incorrect or doesn't exist\n"
                     f"2. Network connectivity issue - check your internet connection\n"
                     f"3. DNS server issue - try using a different DNS server (8.8.8.8 or 1.1.1.1)\n"
-                    f"4. Firewall blocking the connection\n"
-                    f"5. The n8n instance may have been deleted or the domain changed\n\n"
+                    f"4. Firewall/proxy blocking the connection\n"
+                    f"5. VPN interference - try disabling VPN\n"
+                    f"6. The n8n instance may have been deleted or the domain changed\n"
+                    f"{dns_note}"
                     f"Troubleshooting steps:\n"
                     f"1. Test DNS resolution: Run 'nslookup {hostname}' or 'ping {hostname}'\n"
                     f"2. Try accessing https://{hostname} in your browser\n"
                     f"3. Verify the webhook URL in your .env file matches the Production URL from n8n\n"
                     f"4. Check if the n8n workflow is active (green toggle in n8n)\n"
-                    f"5. Use the test endpoint: GET /api/test-n8n to diagnose the issue\n\n"
+                    f"5. Use the test endpoint: GET /api/test-n8n to diagnose the issue\n"
+                    f"6. To disable PDF generation temporarily: Remove or comment out N8N_WEBHOOK_URL in backend/.env\n\n"
                     f"Original error: {str(e)}"
                 )
             elif hasattr(e, 'response') and e.response is not None:

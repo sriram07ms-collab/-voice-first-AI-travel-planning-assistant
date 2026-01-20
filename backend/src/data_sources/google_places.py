@@ -304,7 +304,7 @@ def search_railway_station(
                     "radius": 20000.0  # 20km radius
                 }
             },
-            "includedType": ["train_station", "transit_station"],
+            "includedType": "train_station",  # Single string, not array
             "languageCode": "en"
         }
         
@@ -437,19 +437,92 @@ def search_pois_google_places(
             "place_of_worship": "places of worship"
         }
         
-        # Build text query using place types
+        # Build text query using place types - improved for Indian cities
         if place_types:
             query_parts = [type_names.get(ptype, ptype.replace("_", " ")) for ptype in place_types[:3] if ptype in type_names]
             if query_parts:
-                text_query = f"{', '.join(query_parts)} in {city}"
+                # For Indian cities, include state/country in query for better results
+                if country and country.lower() == "india":
+                    # Try to include state if available (e.g., "Chennai, Tamil Nadu")
+                    if state:
+                        text_query = f"{', '.join(query_parts)} in {city}, {state}, {country}"
+                    else:
+                        # Map major Indian cities to their states
+                        city_state_map = {
+                            "chennai": "Tamil Nadu",
+                            "mumbai": "Maharashtra",
+                            "delhi": "Delhi",
+                            "new delhi": "Delhi",
+                            "bangalore": "Karnataka",
+                            "hyderabad": "Telangana",
+                            "kolkata": "West Bengal",
+                            "pune": "Maharashtra",
+                            "jaipur": "Rajasthan",
+                            "ahmedabad": "Gujarat"
+                        }
+                        city_lower = city.lower()
+                        if city_lower in city_state_map:
+                            text_query = f"{', '.join(query_parts)} in {city}, {city_state_map[city_lower]}, {country}"
+                        else:
+                            text_query = f"{', '.join(query_parts)} in {city}, {country}"
+                else:
+                    text_query = f"{', '.join(query_parts)} in {city}"
+                    if country:
+                        text_query += f", {country}"
             else:
                 # Fallback to generic query
-                text_query = f"places in {city}"
+                if country and country.lower() == "india":
+                    if state:
+                        text_query = f"places in {city}, {state}, {country}"
+                    else:
+                        city_state_map = {
+                            "chennai": "Tamil Nadu",
+                            "mumbai": "Maharashtra",
+                            "delhi": "Delhi",
+                            "new delhi": "Delhi",
+                            "bangalore": "Karnataka",
+                            "hyderabad": "Telangana",
+                            "kolkata": "West Bengal",
+                            "pune": "Maharashtra",
+                            "jaipur": "Rajasthan",
+                            "ahmedabad": "Gujarat"
+                        }
+                        city_lower = city.lower()
+                        if city_lower in city_state_map:
+                            text_query = f"places in {city}, {city_state_map[city_lower]}, {country}"
+                        else:
+                            text_query = f"places in {city}, {country}"
+                else:
+                    text_query = f"places in {city}"
+                    if country:
+                        text_query += f", {country}"
         else:
-            text_query = f"places in {city}"
-        
-        if country:
-            text_query += f", {country}"
+            # No place types - use city with location context
+            if country and country.lower() == "india":
+                if state:
+                    text_query = f"places in {city}, {state}, {country}"
+                else:
+                    city_state_map = {
+                        "chennai": "Tamil Nadu",
+                        "mumbai": "Maharashtra",
+                        "delhi": "Delhi",
+                        "new delhi": "Delhi",
+                        "bangalore": "Karnataka",
+                        "hyderabad": "Telangana",
+                        "kolkata": "West Bengal",
+                        "pune": "Maharashtra",
+                        "jaipur": "Rajasthan",
+                        "ahmedabad": "Gujarat"
+                    }
+                    city_lower = city.lower()
+                    if city_lower in city_state_map:
+                        text_query = f"places in {city}, {city_state_map[city_lower]}, {country}"
+                    else:
+                        text_query = f"places in {city}, {country}"
+            else:
+                text_query = f"places in {city}"
+                if country:
+                    text_query += f", {country}"
         
         # Build request body for Text Search (New)
         request_body = {
@@ -467,16 +540,23 @@ def search_pois_google_places(
             "languageCode": "en"
         }
         
-        # Add type filter if we have specific types (limit to 5 types max)
+        # Add type filter if we have specific types
+        # NOTE: Google Places API (New) only accepts a SINGLE includedType (not an array)
+        # If we have multiple types, we'll use the first one and rely on textQuery for others
         if place_types:
-            request_body["includedType"] = place_types[:5]
+            # Use the first place type as includedType (must be single string, not array)
+            request_body["includedType"] = place_types[0]
+            logger.debug(f"Using includedType: {place_types[0]} (from {len(place_types)} total types)")
         
         # Add optional filters
         if constraints:
+            # Google Places API (New) uses priceLevels as an array, not priceRange
             if constraints.get("budget") == "low":
-                request_body["priceRange"] = "INEXPENSIVE"
+                request_body["priceLevels"] = ["PRICE_LEVEL_INEXPENSIVE"]
             elif constraints.get("budget") == "high":
-                request_body["priceRange"] = "EXPENSIVE"
+                request_body["priceLevels"] = ["PRICE_LEVEL_EXPENSIVE"]
+            elif constraints.get("budget") == "moderate":
+                request_body["priceLevels"] = ["PRICE_LEVEL_MODERATE"]
             
             if constraints.get("time_of_day") in ["morning", "afternoon"]:
                 # Add openNow filter for morning/afternoon

@@ -78,6 +78,16 @@ class ErrorLogger {
     const errorStr = typeof error === 'string' ? error : error.message.toLowerCase();
     const errorName = typeof error === 'string' ? 'Error' : error.name.toLowerCase();
 
+    // Ignore harmless Next.js errors (404 for missing assets like favicon)
+    if (errorStr.includes('next_not_found') || 
+        (context && (context.filename && context.filename.includes('favicon')))) {
+      return {
+        category: ErrorCategory.UNKNOWN_ERROR,
+        auto_fixable: true,
+        fix_suggestion: 'Harmless Next.js 404 - can be ignored (likely missing favicon or asset)',
+      };
+    }
+
     // Pattern detection
     if (errorStr.includes('cors') || errorStr.includes('access-control')) {
       return {
@@ -178,11 +188,21 @@ class ErrorLogger {
   private exportLogsIfNeeded(): void {
     // Export logs to console in development
     if (process.env.NODE_ENV === 'development' && this.logs.length > 0) {
-      // Log last 5 errors to console with more readable format
-      const recentErrors = this.logs.slice(-5);
-      if (recentErrors.length > 0) {
+      // Filter out harmless errors before displaying
+      const meaningfulErrors = this.logs
+        .filter(log => {
+          const msg = log.error_message?.toLowerCase() || '';
+          const type = log.error_type?.toLowerCase() || '';
+          // Don't show Next.js 404 errors or favicon errors
+          return !msg.includes('next_not_found') && 
+                 !msg.includes('favicon') &&
+                 !type.includes('next_not_found');
+        })
+        .slice(-5); // Last 5 meaningful errors
+      
+      if (meaningfulErrors.length > 0) {
         console.group('Recent Errors');
-        recentErrors.forEach((log) => {
+        meaningfulErrors.forEach((log) => {
           const msg = `[${log.category}] ${log.error_type}: ${log.error_message}`;
           // Only log the entry object if it has useful context
           if (log.context && Object.keys(log.context).length > 0) {
@@ -190,7 +210,7 @@ class ErrorLogger {
           } else {
             console.error(msg);
           }
-          if (log.fix_suggestion) {
+          if (log.fix_suggestion && !log.fix_suggestion.includes('can be ignored')) {
             console.info(`💡 Fix suggestion: ${log.fix_suggestion}`);
           }
         });
@@ -244,6 +264,20 @@ export type { ErrorLogEntry };
 // Auto-log unhandled errors
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
+    // Filter out harmless errors (favicon 404s, Next.js internal 404s)
+    const errorMessage = event.message?.toLowerCase() || '';
+    const filename = event.filename?.toLowerCase() || '';
+    
+    // Skip logging for:
+    // - Favicon requests
+    // - Next.js internal 404 errors (NEXT_NOT_FOUND)
+    // - Missing asset files that don't affect functionality
+    if (filename.includes('favicon') || 
+        errorMessage.includes('next_not_found') ||
+        errorMessage.includes('not found') && filename.includes('_next')) {
+      return; // Silently ignore these harmless errors
+    }
+
     errorLogger.logError(event.error || event.message, undefined, {
       filename: event.filename,
       lineno: event.lineno,
@@ -252,6 +286,12 @@ if (typeof window !== 'undefined') {
   });
 
   window.addEventListener('unhandledrejection', (event) => {
+    // Filter out Next.js 404 rejections
+    const reasonStr = String(event.reason).toLowerCase();
+    if (reasonStr.includes('next_not_found')) {
+      return; // Silently ignore Next.js 404 rejections
+    }
+
     errorLogger.logError(
       event.reason instanceof Error ? event.reason : new Error(String(event.reason)),
       ErrorCategory.API_ERROR,

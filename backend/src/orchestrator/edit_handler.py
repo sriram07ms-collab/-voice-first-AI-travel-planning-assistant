@@ -82,7 +82,9 @@ Return JSON with:
 
 CRITICAL: Identify these patterns correctly. Handle voice transcription variations (e.g., "play one" = "swap day 1"):
 
-1. DAY SWAPS (entire day):
+IMPORTANT: If a TIME BLOCK (morning/afternoon/evening) is mentioned, it's ALWAYS MOVE_TIME_BLOCK, NEVER SWAP_DAYS!
+
+1. DAY SWAPS (entire day) - ONLY if NO time blocks are mentioned:
    - "swap Day X itinerary with Day Y" → edit_type: "SWAP_DAYS", source_day: X, target_day: Y
    - "swap Day X and Day Y" → edit_type: "SWAP_DAYS", source_day: X, target_day: Y
    - "swap Day X to Day Y" → edit_type: "SWAP_DAYS", source_day: X, target_day: Y
@@ -90,14 +92,17 @@ CRITICAL: Identify these patterns correctly. Handle voice transcription variatio
    - "play one with day 2" (voice transcription) → edit_type: "SWAP_DAYS", source_day: 1, target_day: 2
    - "modify day X with day Y" → edit_type: "SWAP_DAYS", source_day: X, target_day: Y
    - "change day X to day Y" → edit_type: "SWAP_DAYS", source_day: X, target_day: Y
-   - If user mentions swapping two days (even without "itinerary"), it's SWAP_DAYS
+   - If user mentions swapping two days WITHOUT any time blocks (morning/afternoon/evening), it's SWAP_DAYS
 
-2. TIME BLOCK MOVES:
+2. TIME BLOCK SWAPS/MOVES - If ANY time block is mentioned:
+   - "swap Day X [time_block] with Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: false
+   - "swap Day X [time_block] to Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: false
+   - "swap day X [time_block] plan to day Y [time_block] plan" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: false
+   - "swap Day X [time_block] itinerary to Day Y [time_block] itinerary" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: false
    - "move Day X [time_block] to Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
-   - "swap Day X [time_block] with Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
-   - "modify Day X [time_block] with Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
+   - "modify Day X [time_block] with Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: false
    - "change Day X [time_block] to Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
-   - "update Day X [time_block] with Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
+   - "update Day X [time_block] with Day Y [time_block]" → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: false
    - "Day X [time_block] to Day Y [time_block]" (voice: "day one evening to day two evening") → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
 
 3. REGENERATE TIME BLOCK:
@@ -117,11 +122,13 @@ CRITICAL: Identify these patterns correctly. Handle voice transcription variatio
    → edit_type: "MOVE_TIME_BLOCK", source_day: X, target_day: Y, source_time_block: [time_block], target_time_block: [time_block], regenerate_vacated: true
 
 IMPORTANT RULES:
-- If TWO day numbers are mentioned with "swap"/"modify"/"change", it's ALWAYS SWAP_DAYS (not SWAP_ACTIVITY)
+- If ANY time block (morning/afternoon/evening) is mentioned, it's ALWAYS MOVE_TIME_BLOCK, NEVER SWAP_DAYS!
+- If TWO day numbers are mentioned with "swap"/"modify"/"change" BUT NO time blocks, it's SWAP_DAYS
 - Extract BOTH source_day and target_day for swaps
-- For day swaps, source_day and target_day are REQUIRED
-- For time block moves, source_day, target_day, source_time_block, and target_time_block are REQUIRED
-- Handle voice transcription: "play" = "swap", "day to" = "day 2", "day one" = "day 1"
+- For day swaps, source_day and target_day are REQUIRED (NO time blocks should be present)
+- For time block moves/swaps, source_day, target_day, source_time_block, and target_time_block are REQUIRED
+- If only ONE time block is mentioned, assume it applies to both source and target (e.g., "swap day 1 evening to day 2" → both are evening)
+- Handle voice transcription: "play" = "swap", "day to" = "day 2", "day one" = "day 1", "plan" = can be ignored
 
 Extract day numbers and time blocks (morning/afternoon/evening) carefully from the text.
 
@@ -154,19 +161,64 @@ Only return JSON, no other text."""
             # Merge with entities from intent classifier, but be smart about it
             # NEVER override SWAP_DAYS or MOVE_TIME_BLOCK from LLM with intent classifier
             llm_edit_type = parsed.get("edit_type")
+            llm_source_time_block = parsed.get("source_time_block")
+            llm_target_time_block = parsed.get("target_time_block")
+            
+            # CRITICAL: If time blocks are mentioned, it MUST be MOVE_TIME_BLOCK, not SWAP_DAYS
+            has_time_blocks = bool(llm_source_time_block or llm_target_time_block or 
+                                  any(tb in user_input.lower() for tb in ["morning", "afternoon", "evening"]))
+            
+            if has_time_blocks and llm_edit_type == self.SWAP_DAYS:
+                # Fix misclassification: time blocks mentioned but classified as SWAP_DAYS
+                logger.warning(f"LLM misclassified as SWAP_DAYS but time blocks detected. Changing to MOVE_TIME_BLOCK")
+                parsed["edit_type"] = self.MOVE_TIME_BLOCK
+                # Extract time blocks from input if not already extracted
+                if not llm_source_time_block or not llm_target_time_block:
+                    for tb in ["morning", "afternoon", "evening"]:
+                        if tb in user_input.lower():
+                            if not llm_source_time_block:
+                                parsed["source_time_block"] = tb
+                            if not llm_target_time_block:
+                                parsed["target_time_block"] = tb
+                            break
+                llm_edit_type = self.MOVE_TIME_BLOCK
+            
             if edit_type and llm_edit_type not in [self.SWAP_DAYS, self.MOVE_TIME_BLOCK]:
                 # Only override if LLM didn't detect a complex edit type
                 parsed["edit_type"] = edit_type
             elif llm_edit_type in [self.SWAP_DAYS, self.MOVE_TIME_BLOCK]:
-                # LLM detected a complex edit - trust it
+                # LLM detected a complex edit - trust it (after fixing misclassification above)
                 logger.info(f"LLM detected {llm_edit_type}, keeping it (not overriding with {edit_type})")
             
             # Only override target_day if LLM didn't extract it
             if target_day and not parsed.get("target_day"):
                 parsed["target_day"] = target_day
             
+            # CRITICAL VALIDATION: If time blocks are mentioned, it CANNOT be SWAP_DAYS
+            has_time_blocks_in_input = any(tb in user_input.lower() for tb in ["morning", "afternoon", "evening"])
+            has_time_blocks_in_parsed = bool(parsed.get("source_time_block") or parsed.get("target_time_block"))
+            
+            if (has_time_blocks_in_input or has_time_blocks_in_parsed) and parsed.get("edit_type") == self.SWAP_DAYS:
+                logger.warning(f"❌ MISCLASSIFICATION: Time blocks detected but edit_type is SWAP_DAYS. Fixing to MOVE_TIME_BLOCK")
+                parsed["edit_type"] = self.MOVE_TIME_BLOCK
+                # Extract time blocks from input if not already extracted
+                if not parsed.get("source_time_block") or not parsed.get("target_time_block"):
+                    for tb in ["morning", "afternoon", "evening"]:
+                        if tb in user_input.lower():
+                            if not parsed.get("source_time_block"):
+                                parsed["source_time_block"] = tb
+                            if not parsed.get("target_time_block"):
+                                parsed["target_time_block"] = tb
+                            break
+            
             # Validate and fix swap commands
             if parsed.get("edit_type") == self.SWAP_DAYS:
+                # Ensure no time blocks for day swaps
+                if parsed.get("source_time_block") or parsed.get("target_time_block"):
+                    logger.warning(f"SWAP_DAYS should not have time blocks. Removing them.")
+                    parsed["source_time_block"] = None
+                    parsed["target_time_block"] = None
+                    
                 if not parsed.get("source_day") or not parsed.get("target_day"):
                     # Try to extract from description if missing
                     day_numbers = re.findall(r'day\s+(\d+)', user_input.lower())
@@ -182,7 +234,31 @@ Only return JSON, no other text."""
                 if not parsed.get("target_day"):
                     logger.warning(f"MOVE_TIME_BLOCK detected but missing target_day")
                 if parsed.get("source_day") and not parsed.get("source_time_block"):
-                    logger.warning(f"MOVE_TIME_BLOCK with source_day but missing source_time_block")
+                    # Try to infer from target_time_block or extract from input
+                    if parsed.get("target_time_block"):
+                        parsed["source_time_block"] = parsed["target_time_block"]
+                        logger.info(f"Inferred source_time_block from target_time_block: {parsed['source_time_block']}")
+                    else:
+                        # Extract from input
+                        for tb in ["morning", "afternoon", "evening"]:
+                            if tb in user_input.lower():
+                                parsed["source_time_block"] = tb
+                                parsed["target_time_block"] = tb
+                                logger.info(f"Extracted time block from input: {tb}")
+                                break
+                if parsed.get("target_day") and not parsed.get("target_time_block"):
+                    # Try to infer from source_time_block or extract from input
+                    if parsed.get("source_time_block"):
+                        parsed["target_time_block"] = parsed["source_time_block"]
+                        logger.info(f"Inferred target_time_block from source_time_block: {parsed['target_time_block']}")
+                    else:
+                        # Extract from input
+                        for tb in ["morning", "afternoon", "evening"]:
+                            if tb in user_input.lower():
+                                parsed["source_time_block"] = tb
+                                parsed["target_time_block"] = tb
+                                logger.info(f"Extracted time block from input: {tb}")
+                                break
             
             # Final validation and logging
             if parsed.get("edit_type") == self.SWAP_DAYS:
@@ -245,16 +321,17 @@ Only return JSON, no other text."""
         
         # Check for time block moves: "move day X evening to day Y evening"
         # Also handle "swap day X evening with day Y evening" and "modify" variations
-        # Handle "itinerary" word in between (e.g., "swap day 1 evening itinerary to day 2 evening itinerary")
+        # Handle "itinerary" and "plan" words in between (e.g., "swap day 1 evening plan to day 2 evening plan")
         move_time_patterns = [
-            r'move\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',
-            r'day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:to|in)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',
-            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+with\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "swap day 1 evening with day 2 evening"
-            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "swap day 1 evening itinerary to day 2 evening itinerary"
-            r'modify\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "modify day 1 evening with day 2 evening"
-            r'change\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "change day 1 evening with day 2 evening"
-            r'update\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "update day 1 evening with day 2 evening"
-            r'day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "day 1 evening with day 2 evening"
+            r'move\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',
+            r'day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+(?:to|in)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',
+            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+with\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "swap day 1 evening with day 2 evening"
+            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "swap day 1 evening plan to day 2 evening plan"
+            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+(?:itinerary\s+)?with\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "swap day 1 evening itinerary with day 2 evening"
+            r'modify\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "modify day 1 evening with day 2 evening"
+            r'change\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "change day 1 evening with day 2 evening"
+            r'update\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "update day 1 evening with day 2 evening"
+            r'day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+(?:itinerary|plan))?',  # "day 1 evening with day 2 evening"
         ]
         
         for pattern in move_time_patterns:
@@ -294,7 +371,11 @@ Only return JSON, no other text."""
         time_block_keywords = ["morning", "afternoon", "evening"]
         has_time_blocks = any(tb in user_input_lower for tb in time_block_keywords)
         
-        if len(day_numbers) >= 2 and any(kw in user_input_lower for kw in swap_keywords) and not has_time_blocks:
+        # CRITICAL: If time blocks are mentioned, it's a time block swap, NOT a day swap
+        if has_time_blocks:
+            # Already handled by move_time_patterns above, skip day swap detection
+            pass
+        elif len(day_numbers) >= 2 and any(kw in user_input_lower for kw in swap_keywords) and not has_time_blocks:
             # Multiple days mentioned with swap/modify but NO time blocks - likely a day swap
             source_day = int(day_numbers[0])
             target_day_val = int(day_numbers[1])

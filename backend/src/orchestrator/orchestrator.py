@@ -318,6 +318,14 @@ class TravelOrchestrator:
                 pois = []
             
             if not pois:
+                # Check which API was used (check if Google Maps API key is configured)
+                try:
+                    from src.utils.config import get_settings
+                    settings = get_settings()
+                    google_api_configured = bool(settings.google_maps_api_key)
+                except Exception:
+                    google_api_configured = False
+                
                 # Verify geocoding worked (get coordinates to check)
                 try:
                     from src.data_sources.geocoding import get_city_coordinates
@@ -328,15 +336,26 @@ class TravelOrchestrator:
                 
                 # Try to get more details from the MCP result if available
                 logger.warning(f"No POIs found for '{city_name}'. This could be due to:")
-                logger.warning(f"  - City name not recognized by OpenStreetMap")
+                if google_api_configured:
+                    logger.warning(f"  - Google Places API returned no results")
+                    logger.warning(f"  - OpenStreetMap API fallback also returned no results")
+                else:
+                    logger.warning(f"  - Google Maps API key not configured (GOOGLE_MAPS_API_KEY)")
+                    logger.warning(f"  - OpenStreetMap API returned no results")
+                logger.warning(f"  - City name not recognized")
                 logger.warning(f"  - No POIs matching interests: {interests}")
-                logger.warning(f"  - OpenStreetMap API issue or timeout")
-                logger.warning(f"  - All POIs filtered out (no names in OSM data)")
+                logger.warning(f"  - API issues or timeouts")
                 
                 # Provide a more helpful error message with suggestions
                 error_msg = f"Could not find any points of interest for {city_name}."
                 if interests:
                     error_msg += f" Searched for interests: {', '.join(interests)}."
+                
+                # Add API-specific error message
+                if google_api_configured:
+                    error_msg += " Both Google Places API and OpenStreetMap API returned no results."
+                else:
+                    error_msg += " Google Maps API key is not configured. Please set GOOGLE_MAPS_API_KEY environment variable to use Google Places API. Falling back to OpenStreetMap API which also returned no results."
                 
                 # Add Chennai-specific help
                 if city_name.lower() in ["chennai", "madras"]:
@@ -344,7 +363,7 @@ class TravelOrchestrator:
                 else:
                     error_msg += f" Please verify the city name is correct."
                 
-                error_msg += " The OpenStreetMap API may be temporarily unavailable. Please try again in a few moments."
+                error_msg += " Please try again in a few moments or check your API configuration."
                 
                 return {
                     "status": "error",
@@ -816,6 +835,7 @@ class TravelOrchestrator:
                     is_swap = "swap" in description or "switch" in description
                     
                     if is_swap:
+                        # Time block swap - be specific about what was swapped
                         response_message = f"I've swapped Day {source_day} {source_time_block} with Day {target_day} {target_time_block}."
                     else:
                         response_message = f"I've moved Day {source_day} {source_time_block} to Day {target_day} {target_time_block}."
