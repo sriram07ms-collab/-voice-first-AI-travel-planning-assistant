@@ -49,6 +49,18 @@ async def lifespan(app: FastAPI):
     logger.info(f"Log level: {settings.log_level}")
     logger.info(f"CORS origins: {settings.cors_origins}")
     
+    # Validate Google Maps API configuration
+    if settings.google_maps_api_key:
+        api_key_preview = f"{settings.google_maps_api_key[:10]}..." if len(settings.google_maps_api_key) > 10 else "***"
+        logger.info(f"✅ Google Maps API key configured ({api_key_preview})")
+        logger.info(f"   → Travel times will use REAL-TIME Google Maps Directions API data")
+        logger.info(f"   → POI search will use Google Places API with real ratings and reviews")
+    else:
+        logger.error("❌ Google Maps API key NOT configured!")
+        logger.error("   → Travel times will use fallback (OSRM/distance estimation) - NOT real-time!")
+        logger.error("   → POI search will fallback to OpenStreetMap - less accurate data!")
+        logger.error("   → Set GOOGLE_MAPS_API_KEY environment variable for accurate real-time data")
+    
     # Initialize services here
     # - Connect to MCP servers
     # - Initialize RAG vector store

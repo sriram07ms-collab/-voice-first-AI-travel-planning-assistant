@@ -185,10 +185,11 @@ def calculate_travel_time_google_maps(
     
     # Check if API key is configured
     if not settings.google_maps_api_key:
-        logger.warning("⚠️ Google Maps API key not configured! Set GOOGLE_MAPS_API_KEY environment variable. Skipping Google Maps Directions API.")
+        logger.error("❌ Google Maps API key NOT configured! Cannot get real-time travel time data.")
+        logger.error("   Set GOOGLE_MAPS_API_KEY environment variable to use Google Maps Directions API.")
         return None
     
-    logger.debug(f"✅ Google Maps API key configured, using Google Maps Directions API (mode: {mode})")
+    logger.info(f"✅ Google Maps API key configured, calling Google Maps Directions API for REAL-TIME travel time (mode: {mode})")
     
     # Check cache first
     cache_key = _get_cache_key(origin, destination, mode)
@@ -280,27 +281,32 @@ def calculate_travel_time_google_maps(
             return result
         
         elif status == "OVER_QUERY_LIMIT":
-            logger.warning("Google Maps API rate limit exceeded (OVER_QUERY_LIMIT)")
+            logger.error("❌ Google Maps API rate limit exceeded (OVER_QUERY_LIMIT)")
+            logger.error("   → Consider upgrading your Google Maps API quota")
             return None
         
         elif status == "REQUEST_DENIED":
-            logger.warning("Google Maps API request denied (invalid API key or permissions)")
+            logger.error("❌ Google Maps API request denied (REQUEST_DENIED)")
+            logger.error("   → Check if API key is valid and has Directions API enabled")
+            logger.error("   → Enable 'Directions API' in Google Cloud Console")
             return None
         
         elif status == "INVALID_REQUEST":
-            logger.warning("Google Maps API invalid request (check parameters)")
+            logger.error("❌ Google Maps API invalid request (INVALID_REQUEST)")
+            logger.error(f"   → Check parameters: origin={origin_str}, destination={destination_str}")
             return None
         
         elif status == "ZERO_RESULTS":
-            logger.debug("Google Maps API found no route (ZERO_RESULTS)")
+            logger.warning("⚠️ Google Maps API found no route (ZERO_RESULTS) - locations may be unreachable")
             return None
         
         elif status == "UNKNOWN_ERROR":
-            logger.warning("Google Maps API unknown error (temporary issue)")
+            logger.warning("⚠️ Google Maps API unknown error (UNKNOWN_ERROR) - temporary issue, will retry")
             return None
         
         else:
-            logger.warning(f"Google Maps API returned error status: {status}")
+            logger.error(f"❌ Google Maps API returned error status: {status}")
+            logger.error(f"   → Full response: {data}")
             return None
     
     except requests.RequestException as e:
@@ -411,22 +417,34 @@ def calculate_travel_time(
     lat2 = destination["lat"]
     lon2 = destination["lon"]
     
-    # Try Google Maps API first (if configured)
+    # CRITICAL: Always try Google Maps API first (if configured)
+    settings = _get_settings()
+    if not settings.google_maps_api_key:
+        logger.error("❌ Google Maps API key NOT configured! Travel times will be inaccurate. Set GOOGLE_MAPS_API_KEY environment variable.")
+        logger.error("   Falling back to OSRM/distance estimation - these are NOT real-time data!")
+    else:
+        logger.info(f"✅ Google Maps API key configured, attempting to use Google Maps Directions API for real-time travel time")
+    
     google_maps_result = calculate_travel_time_google_maps(origin, destination, mode)
     
     if google_maps_result:
-        logger.info(f"✅ Using Google Maps API for travel time calculation ({mode}): {google_maps_result.get('duration_minutes')} min, {google_maps_result.get('distance_km')} km")
+        duration = google_maps_result.get('duration_minutes', 0)
+        distance = google_maps_result.get('distance_km', 0)
+        logger.info(f"✅ Using Google Maps API (REAL-TIME DATA) for travel time ({mode}): {duration} min, {distance} km")
         return google_maps_result
     
-    # Fallback to OSRM (more accurate than distance estimation)
+    # Fallback to OSRM (more accurate than distance estimation, but NOT real-time)
+    logger.warning(f"⚠️ Google Maps API unavailable or failed. Using OSRM API (NOT real-time) for travel time calculation ({mode})")
     osrm_result = calculate_travel_time_osrm(lat1, lon1, lat2, lon2, mode)
     
     if osrm_result:
-        logger.warning(f"⚠️ Google Maps API unavailable, using OSRM API for travel time calculation ({mode}): {osrm_result.get('duration_minutes')} min")
+        duration = osrm_result.get('duration_minutes', 0)
+        logger.warning(f"⚠️ OSRM result: {duration} min (NOTE: This is NOT real-time Google Maps data)")
         return osrm_result
     
-    # Fallback to distance-based estimation
-    logger.warning(f"⚠️ Both Google Maps and OSRM unavailable, using distance-based estimation for travel time ({mode})")
+    # Fallback to distance-based estimation (least accurate, NOT real-time)
+    logger.error(f"❌ Both Google Maps and OSRM unavailable! Using distance-based estimation (INACCURATE, NOT real-time) for travel time ({mode})")
+    logger.error(f"   Please configure GOOGLE_MAPS_API_KEY for accurate real-time travel times")
     duration_minutes = estimate_travel_time_distance(lat1, lon1, lat2, lon2, mode)
     distance_km = calculate_distance(lat1, lon1, lat2, lon2)
     

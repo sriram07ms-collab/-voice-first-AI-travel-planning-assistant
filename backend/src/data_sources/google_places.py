@@ -213,45 +213,53 @@ def _map_place_type_to_category(place_type: str) -> str:
 
 def _estimate_duration_from_category(category: str, rating: Optional[float] = None, user_rating_count: Optional[int] = None) -> int:
     """
-    Estimate duration in minutes based on category and Google Places data.
-    Uses rating and user count to refine estimates.
+    Estimate duration in minutes based on REAL Google Places data (category, rating, user count).
+    Uses actual Google Places API data to make intelligent estimates.
+    
+    NOTE: Google Places API doesn't provide visit duration, so we estimate based on:
+    - Category (from Google Places types)
+    - Rating (from Google Places rating)
+    - User rating count (from Google Places userRatingCount)
     
     Args:
-        category: POI category
-        rating: Google Places rating (0-5)
-        user_rating_count: Number of user ratings
+        category: POI category (derived from Google Places types)
+        rating: Google Places rating (0-5) - REAL data from Google Places API
+        user_rating_count: Number of user ratings - REAL data from Google Places API
     
     Returns:
-        Estimated duration in minutes
+        Estimated duration in minutes (based on real Google Places data)
     """
-    # Base duration by category
+    # Base duration by category (based on typical visit times)
     base_duration_map = {
-        "restaurant": 60,
-        "museum": 120,
-        "attraction": 90,
-        "shopping": 60,
-        "park": 60,
-        "nightlife": 120,
-        "historical": 90,
-        "nature": 60
+        "restaurant": 60,      # Typical meal time
+        "museum": 120,         # Museums typically need 1-2 hours
+        "attraction": 90,      # Tourist attractions: 1-1.5 hours
+        "shopping": 60,        # Shopping: ~1 hour
+        "park": 60,            # Parks: ~1 hour
+        "nightlife": 120,      # Nightlife venues: 2+ hours
+        "historical": 90,      # Historical sites: 1-1.5 hours
+        "nature": 60           # Nature spots: ~1 hour
     }
     base_duration = base_duration_map.get(category, 90)
     
-    # Adjust based on rating and popularity
-    if rating and user_rating_count:
-        # Higher rated and more popular places typically need more time
+    # Adjust based on REAL Google Places rating and popularity data
+    if rating is not None and user_rating_count is not None:
+        # Use actual Google Places data to refine estimate
         if rating >= 4.5 and user_rating_count >= 100:
-            # Popular, highly-rated place - add 20-30% more time
+            # Highly-rated, popular place (from Google Places) - visitors spend more time
             adjustment = int(base_duration * 0.25)
             base_duration += adjustment
+            logger.debug(f"Duration adjusted +{adjustment} min for highly-rated popular place (rating: {rating}, reviews: {user_rating_count})")
         elif rating >= 4.0 and user_rating_count >= 50:
-            # Well-rated place - add 10-15% more time
+            # Well-rated place (from Google Places) - add some time
             adjustment = int(base_duration * 0.15)
             base_duration += adjustment
+            logger.debug(f"Duration adjusted +{adjustment} min for well-rated place (rating: {rating}, reviews: {user_rating_count})")
         elif rating < 3.5:
-            # Lower rated - reduce time slightly
+            # Lower-rated place (from Google Places) - visitors spend less time
             adjustment = int(base_duration * 0.1)
             base_duration = max(base_duration - adjustment, int(base_duration * 0.7))
+            logger.debug(f"Duration adjusted -{adjustment} min for lower-rated place (rating: {rating}, reviews: {user_rating_count})")
     
     return base_duration
 
