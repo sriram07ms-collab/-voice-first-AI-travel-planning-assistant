@@ -377,10 +377,10 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
   if (isSupported === null) {
     return (
       <div className="flex flex-col items-center gap-2">
-        <div className="w-16 h-16 rounded-full bg-gray-200 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-16 h-16 rounded-full bg-[#E4E6EB] flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#65676B] border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <p className="text-sm text-gray-600">Checking microphone support...</p>
+        <p className="text-sm text-[#65676B]">Checking microphone support...</p>
       </div>
     );
   }
@@ -409,7 +409,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
           transition-all duration-200
           ${isRecording
             ? 'bg-red-500 hover:bg-red-600 animate-pulse'
-            : 'bg-blue-500 hover:bg-blue-600'
+            : 'bg-[#1877F2] hover:bg-[#166FE5]'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           shadow-lg hover:shadow-xl
@@ -447,9 +447,9 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
       
       {isRecording && (
         <div className="flex flex-col items-center gap-1">
-          <p className="text-sm text-gray-600 animate-pulse">Recording...</p>
+          <p className="text-sm text-[#65676B] animate-pulse">Recording...</p>
           {displayTextTrimmed && (
-            <p className="text-sm text-gray-500 italic max-w-md text-center">
+            <p className="text-sm text-[#65676B] italic max-w-md text-center">
               "{displayTextTrimmed}"
             </p>
           )}

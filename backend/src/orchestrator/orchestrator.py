@@ -764,9 +764,16 @@ class TravelOrchestrator:
                     response_message = f"I've swapped the days in your itinerary."
             elif edit_type == self.edit_handler.MOVE_TIME_BLOCK:
                 if source_day and target_day and source_time_block and target_time_block:
-                    response_message = f"I've moved Day {source_day} {source_time_block} to Day {target_day} {target_time_block}."
-                    if edit_command.get("regenerate_vacated"):
-                        response_message += f" I've also planned new activities for Day {source_day} {source_time_block}."
+                    # Check if this is a swap (both blocks are being exchanged)
+                    description = edit_command.get("description", "").lower()
+                    is_swap = "swap" in description or "switch" in description
+                    
+                    if is_swap:
+                        response_message = f"I've swapped Day {source_day} {source_time_block} with Day {target_day} {target_time_block}."
+                    else:
+                        response_message = f"I've moved Day {source_day} {source_time_block} to Day {target_day} {target_time_block}."
+                        if edit_command.get("regenerate_vacated"):
+                            response_message += f" I've also planned new activities for Day {source_day} {source_time_block}."
                 elif target_day and target_time_block:
                     response_message = f"I've updated Day {target_day} {target_time_block} with new activities."
                 else:

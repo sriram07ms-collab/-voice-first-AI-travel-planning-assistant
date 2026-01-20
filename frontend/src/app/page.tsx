@@ -190,18 +190,18 @@ function TravelAssistantContent() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Modern Header with Gradient */}
-      <header className="glass border-b border-slate-200/50 sticky top-0 z-50 backdrop-blur-xl">
+      {/* Modern Header - Meta Style */}
+      <header className="glass border-b border-[#CCD0D5] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold gradient-text mb-1">
+              <h1 className="text-3xl font-bold text-[#1877F2] mb-1">
                 ✈️ Voice-First Travel Assistant
               </h1>
-              <p className="text-slate-600 text-sm">Plan your perfect trip with AI-powered assistance</p>
+              <p className="text-[#65676B] text-sm">Plan your perfect trip with AI-powered assistance</p>
             </div>
             <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer group">
+              <label className="flex items-center gap-2 text-sm text-[#050505] cursor-pointer group">
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -210,7 +210,7 @@ function TravelAssistantContent() {
                     className="sr-only"
                   />
                   <div className={`w-11 h-6 rounded-full transition-colors duration-200 ${
-                    enableTTS ? 'bg-blue-600' : 'bg-slate-300'
+                    enableTTS ? 'bg-[#1877F2]' : 'bg-[#CCD0D5]'
                   }`}>
                     <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 mt-0.5 ${
                       enableTTS ? 'translate-x-5' : 'translate-x-0.5'
@@ -234,35 +234,35 @@ function TravelAssistantContent() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)]">
-          {/* Left Panel - Unified Chat */}
+          {/* Left Panel - Single Card Mode Chat */}
           <div className="lg:col-span-2 flex flex-col min-h-0">
-            {/* Unified Chat Card with Input at Bottom */}
+            {/* Single Card Chat - No Scrollable Area */}
             <div className="card flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-slate-200 flex-shrink-0">
+              <div className="flex items-center justify-between p-4 border-b border-[#CCD0D5] flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <h2 className="text-lg font-semibold text-slate-800">Conversation</h2>
+                  <h2 className="text-lg font-semibold text-[#050505]">Conversation</h2>
                 </div>
                 {sources && sources.length > 0 && (
-                  <span className="text-xs font-medium text-slate-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                  <span className="text-xs font-medium text-[#65676B] bg-[#E4E6EB] px-3 py-1 rounded-full border border-[#CCD0D5]">
                     {sources.length} source{sources.length > 1 ? 's' : ''}
                   </span>
                 )}
               </div>
               
-              {/* Scrollable Messages Area */}
+              {/* Messages Area - Single Card Flow (No Scroll) */}
               <div 
                 ref={messagesContainerRef}
-                className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin min-h-0"
+                className="flex-1 p-4 space-y-4 min-h-0 overflow-y-auto scrollbar-thin"
               >
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12 animate-fade-in">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
+                    <div className="w-16 h-16 bg-[#1877F2] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
                       <span className="text-3xl">✈️</span>
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-800 mb-2">Start Planning Your Trip!</h3>
-                    <p className="text-slate-600 max-w-md">Ask me anything about your travel plans. I can help you create a personalized itinerary.</p>
+                    <h3 className="text-xl font-semibold text-[#050505] mb-2">Start Planning Your Trip!</h3>
+                    <p className="text-[#65676B] max-w-md">Ask me anything about your travel plans. I can help you create a personalized itinerary.</p>
                   </div>
                 )}
                 
@@ -280,7 +280,7 @@ function TravelAssistantContent() {
                           message.role === 'user'
                             ? 'message-user'
                             : isClarifying
-                            ? 'bg-amber-50 border-2 border-amber-300 text-slate-800'
+                            ? 'bg-amber-50 border-2 border-amber-300 text-[#050505]'
                             : 'message-assistant'
                         }`}
                       >
@@ -294,7 +294,7 @@ function TravelAssistantContent() {
                         <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
                         {message.timestamp && (
                           <p className={`text-xs mt-2 ${
-                            message.role === 'user' ? 'text-blue-100' : 'text-slate-500'
+                            message.role === 'user' ? 'text-white/80' : 'text-[#65676B]'
                           }`}>
                             {new Date(message.timestamp).toLocaleTimeString('en-US', {
                               hour: '2-digit',
@@ -310,12 +310,12 @@ function TravelAssistantContent() {
                 {/* Live transcript display */}
                 {liveTranscript && (
                   <div className="flex justify-start animate-fade-in">
-                    <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-blue-50 border-2 border-blue-200">
-                      <p className="text-xs text-blue-600 mb-1 font-semibold flex items-center gap-1">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                    <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-[#E4E6EB] border-2 border-[#1877F2]">
+                      <p className="text-xs text-[#1877F2] mb-1 font-semibold flex items-center gap-1">
+                        <span className="w-2 h-2 bg-[#1877F2] rounded-full animate-pulse"></span>
                         Listening...
                       </p>
-                      <p className="text-slate-700 italic">{liveTranscript}</p>
+                      <p className="text-[#050505] italic">{liveTranscript}</p>
                     </div>
                   </div>
                 )}
@@ -323,10 +323,10 @@ function TravelAssistantContent() {
                 {/* Processing indicator */}
                 {isProcessing && (
                   <div className="flex justify-start animate-fade-in">
-                    <div className="bg-white rounded-2xl px-4 py-3 border border-slate-200 shadow-md">
+                    <div className="bg-white rounded-2xl px-4 py-3 border border-[#CCD0D5] shadow-md">
                       <div className="flex items-center gap-3">
-                        <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-sm text-slate-600 font-medium">Processing your request...</span>
+                        <div className="w-5 h-5 border-2 border-[#1877F2] border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-sm text-[#65676B] font-medium">Processing your request...</span>
                       </div>
                     </div>
                   </div>
@@ -337,7 +337,7 @@ function TravelAssistantContent() {
               </div>
               
               {/* Sticky Input Section at Bottom */}
-              <div className="border-t border-slate-200 bg-slate-50 p-4 flex-shrink-0">
+              <div className="border-t border-[#CCD0D5] bg-[#F0F2F5] p-4 flex-shrink-0">
                 {/* Error Display */}
                 {error && (
                   <div className="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg animate-fade-in">
@@ -360,9 +360,9 @@ function TravelAssistantContent() {
                 {/* Voice Input Option */}
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center justify-center gap-4 w-full">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">or</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
+                    <span className="text-xs font-medium text-[#65676B] uppercase tracking-wider">or</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
                   </div>
                   <div className="flex items-center gap-3">
                     <VoiceInput 
@@ -371,7 +371,7 @@ function TravelAssistantContent() {
                       disabled={isProcessing}
                     />
                     {showVoicePrompt && !isProcessing && (
-                      <p className="text-sm text-blue-600 font-medium animate-pulse">
+                      <p className="text-sm text-[#1877F2] font-medium animate-pulse">
                         💬 Click to speak
                       </p>
                     )}
@@ -389,8 +389,8 @@ function TravelAssistantContent() {
                 onClick={() => setActiveTab('chat')}
                 className={`flex-1 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
                   activeTab === 'chat'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                    ? 'bg-[#1877F2] text-white shadow-md'
+                    : 'text-[#65676B] hover:text-[#050505] hover:bg-[#F0F2F5]'
                 }`}
               >
                 Chat
@@ -400,8 +400,8 @@ function TravelAssistantContent() {
                   onClick={() => setActiveTab('itinerary')}
                   className={`flex-1 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
                     activeTab === 'itinerary'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                      : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                      ? 'bg-[#1877F2] text-white shadow-md'
+                      : 'text-[#65676B] hover:text-[#050505] hover:bg-[#F0F2F5]'
                   }`}
                 >
                   Itinerary
@@ -412,8 +412,8 @@ function TravelAssistantContent() {
                   onClick={() => setActiveTab('sources')}
                   className={`px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
                     activeTab === 'sources'
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
-                      : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                      ? 'bg-[#1877F2] text-white shadow-md'
+                      : 'text-[#65676B] hover:text-[#050505] hover:bg-[#F0F2F5]'
                   }`}
                 >
                   Sources {sources && sources.length > 0 && `(${sources.length})`}
@@ -467,34 +467,34 @@ function TravelAssistantContent() {
                     {sources && sources.length > 0 ? (
                       <SourcesView sources={sources} />
                     ) : (
-                      <div className="text-center text-slate-500 py-12">
-                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <div className="text-center text-[#65676B] py-12">
+                        <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
                           <span className="text-2xl">📚</span>
                         </div>
                         <p className="font-medium mb-1">No sources available yet</p>
-                        <p className="text-sm text-slate-400">Sources will appear after planning starts</p>
+                        <p className="text-sm text-[#65676B]">Sources will appear after planning starts</p>
                       </div>
                     )}
                   </div>
                 )}
 
                 {activeTab === 'chat' && (
-                  <div className="text-center text-slate-500 py-12">
-                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="text-center text-[#65676B] py-12">
+                    <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
                       <span className="text-2xl">💬</span>
                     </div>
                     <p className="font-medium mb-1">Chat messages appear in the left panel</p>
-                    <p className="text-sm text-slate-400">Use the tabs above to view itinerary and sources</p>
+                    <p className="text-sm text-[#65676B]">Use the tabs above to view itinerary and sources</p>
                   </div>
                 )}
 
                 {!itinerary && activeTab === 'itinerary' && (
-                  <div className="text-center text-slate-500 py-12">
-                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <div className="text-center text-[#65676B] py-12">
+                    <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
                       <span className="text-2xl">🗺️</span>
                     </div>
                     <p className="font-medium mb-1">No itinerary yet</p>
-                    <p className="text-sm text-slate-400">Start planning to see your itinerary here</p>
+                    <p className="text-sm text-[#65676B]">Start planning to see your itinerary here</p>
                   </div>
                 )}
               </div>

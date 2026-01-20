@@ -9,8 +9,8 @@
 
 @layer base {
   body {
-    @apply bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50;
-    @apply text-slate-900;
+    background-color: #F0F2F5;
+    color: #050505;
     @apply antialiased;
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -22,76 +22,87 @@
 }
 
 @layer components {
-  /* Modern Card Styles */
+  /* Modern Card Styles - Meta Colors */
   .card {
-    @apply bg-white rounded-xl shadow-lg border border-slate-200/60;
-    @apply backdrop-blur-sm;
+    background-color: #FFFFFF;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+    border: 1px solid #CCD0D5;
     @apply transition-all duration-300;
   }
   
   .card-hover {
-    @apply hover:shadow-xl hover:border-slate-300;
+    @apply hover:shadow-md hover:border-gray-300;
     @apply hover:-translate-y-0.5;
   }
 
-  /* Modern Button Styles */
+  /* Modern Button Styles - Meta Colors */
   .btn-primary {
-    @apply bg-gradient-to-r from-blue-600 to-indigo-600;
-    @apply text-white font-semibold px-6 py-3 rounded-lg;
-    @apply shadow-lg shadow-blue-500/30;
-    @apply hover:from-blue-700 hover:to-indigo-700;
+    background-color: #1877F2;
+    color: #FFFFFF;
+    @apply font-semibold px-6 py-3 rounded-lg;
+    @apply hover:bg-[#166FE5];
     @apply active:scale-95;
     @apply transition-all duration-200;
     @apply disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
   }
 
   .btn-secondary {
-    @apply bg-white text-slate-700 font-semibold px-6 py-3 rounded-lg;
-    @apply border-2 border-slate-300;
-    @apply hover:bg-slate-50 hover:border-slate-400;
+    background-color: #FFFFFF;
+    color: #050505;
+    @apply font-semibold px-6 py-3 rounded-lg;
+    border: 1px solid #CCD0D5;
+    @apply hover:bg-[#F0F2F5];
     @apply active:scale-95;
     @apply transition-all duration-200;
   }
 
-  /* Modern Input Styles */
+  /* Modern Input Styles - Meta Colors */
   .input-modern {
-    @apply w-full px-4 py-3 rounded-lg border-2 border-slate-300;
-    @apply bg-white text-slate-900 placeholder-slate-400;
-    @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500;
+    @apply w-full px-4 py-3 rounded-lg;
+    background-color: #FFFFFF;
+    border: 1px solid #CCD0D5;
+    color: #050505;
+    @apply placeholder:text-[#65676B];
+    @apply focus:outline-none focus:ring-2 focus:ring-[#1877F2] focus:border-[#1877F2];
     @apply transition-all duration-200;
   }
 
-  /* Message Bubbles */
+  /* Message Bubbles - Meta Colors */
   .message-user {
-    @apply bg-gradient-to-br from-blue-500 to-indigo-600 text-white;
+    background-color: #1877F2;
+    color: #FFFFFF;
     @apply rounded-2xl rounded-tr-sm;
-    @apply shadow-lg shadow-blue-500/30;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
   }
 
   .message-assistant {
-    @apply bg-white text-slate-800;
+    background-color: #E4E6EB;
+    color: #050505;
     @apply rounded-2xl rounded-tl-sm;
-    @apply border border-slate-200;
-    @apply shadow-md;
+    border: 1px solid #CCD0D5;
   }
 
-  /* Glass Morphism Effect */
+  /* Glass Morphism Effect - Meta Style */
   .glass {
-    @apply bg-white/80 backdrop-blur-md;
-    @apply border border-white/20;
-    @apply shadow-xl;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid #CCD0D5;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
   }
 
-  /* Gradient Text */
+  /* Gradient Text - Meta Blue */
   .gradient-text {
-    @apply bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600;
-    @apply bg-clip-text text-transparent;
+    background: linear-gradient(to right, #1877F2, #1877F2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: #1877F2;
   }
 
-  /* Smooth Scrollbar */
+  /* Smooth Scrollbar - Meta Style */
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: rgb(203 213 225) transparent;
+    scrollbar-color: #CCD0D5 transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -103,11 +114,12 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-slate-300 rounded-full;
+    background-color: #CCD0D5;
+    border-radius: 9999px;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-400;
+    background-color: #B0B3B8;
   }
 }
 

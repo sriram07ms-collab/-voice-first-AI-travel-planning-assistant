@@ -51,7 +51,7 @@ export default function TextInput({
 
   return (
     <div className="w-full">
-      <div className="flex items-end gap-2 bg-white rounded-xl border-2 border-slate-200 p-3 shadow-sm focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all duration-200">
+      <div className="flex items-end gap-2 bg-white rounded-xl border-2 border-[#CCD0D5] p-3 shadow-sm focus-within:border-[#1877F2] focus-within:ring-2 focus-within:ring-[#1877F2]/20 transition-all duration-200">
         <textarea
           ref={textareaRef}
           value={message}
@@ -62,7 +62,7 @@ export default function TextInput({
           rows={1}
           className="
             flex-1 resize-none border-none outline-none bg-transparent
-            text-slate-900 placeholder-slate-400
+            text-[#050505] placeholder:text-[#65676B]
             disabled:opacity-50 disabled:cursor-not-allowed
             max-h-32 overflow-y-auto scrollbar-thin
             text-sm leading-relaxed
@@ -76,13 +76,13 @@ export default function TextInput({
           onClick={handleSubmit}
           disabled={disabled || !message.trim()}
           className="
-            px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg
-            hover:from-blue-700 hover:to-indigo-700
+            px-4 py-2 bg-[#1877F2] text-white rounded-lg
+            hover:bg-[#166FE5]
             active:scale-95
             disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
             transition-all duration-200 font-semibold text-sm
-            flex items-center gap-2 shadow-md shadow-blue-500/30
-            hover:shadow-lg hover:shadow-blue-500/40
+            flex items-center gap-2 shadow-md
+            hover:shadow-lg
           "
         >
           <span>Send</span>
@@ -101,8 +101,8 @@ export default function TextInput({
           </svg>
         </button>
       </div>
-      <p className="text-xs text-slate-500 mt-2 text-center">
-        Press <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 bg-slate-100 rounded text-slate-600 font-medium">Shift+Enter</kbd> for new line
+      <p className="text-xs text-[#65676B] mt-2 text-center">
+        Press <kbd className="px-1.5 py-0.5 bg-[#E4E6EB] rounded text-[#050505] font-medium">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 bg-[#E4E6EB] rounded text-[#050505] font-medium">Shift+Enter</kbd> for new line
       </p>
     </div>
   );

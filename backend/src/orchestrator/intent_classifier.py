@@ -130,6 +130,7 @@ class IntentClassifier:
         
         # Fix "day to" → "day 2" (common voice error)
         text = re.sub(r'\bday\s+to\b', 'day 2', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bday\s+to\b', 'day 2', text, flags=re.IGNORECASE)
         
         # Fix spacing issues after replacements
         text = re.sub(r'\s+', ' ', text).strip()

@@ -245,15 +245,16 @@ Only return JSON, no other text."""
         
         # Check for time block moves: "move day X evening to day Y evening"
         # Also handle "swap day X evening with day Y evening" and "modify" variations
+        # Handle "itinerary" word in between (e.g., "swap day 1 evening itinerary to day 2 evening itinerary")
         move_time_patterns = [
-            r'move\s+day\s+(\d+)\s+(morning|afternoon|evening)\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)',
-            r'day\s+(\d+)\s+(morning|afternoon|evening)\s+(?:to|in)\s+day\s+(\d+)\s+(morning|afternoon|evening)',
-            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)\s+with\s+day\s+(\d+)\s+(morning|afternoon|evening)',  # "swap day 1 evening with day 2 evening"
-            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)',  # "swap day 1 evening to day 2 evening"
-            r'modify\s+day\s+(\d+)\s+(morning|afternoon|evening)\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)',  # "modify day 1 evening with day 2 evening"
-            r'change\s+day\s+(\d+)\s+(morning|afternoon|evening)\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)',  # "change day 1 evening with day 2 evening"
-            r'update\s+day\s+(\d+)\s+(morning|afternoon|evening)\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)',  # "update day 1 evening with day 2 evening"
-            r'day\s+(\d+)\s+(morning|afternoon|evening)\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)',  # "day 1 evening with day 2 evening"
+            r'move\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',
+            r'day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:to|in)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',
+            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+with\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "swap day 1 evening with day 2 evening"
+            r'swap\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+to\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "swap day 1 evening itinerary to day 2 evening itinerary"
+            r'modify\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "modify day 1 evening with day 2 evening"
+            r'change\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "change day 1 evening with day 2 evening"
+            r'update\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "update day 1 evening with day 2 evening"
+            r'day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?\s+(?:with|to)\s+day\s+(\d+)\s+(morning|afternoon|evening)(?:\s+itinerary)?',  # "day 1 evening with day 2 evening"
         ]
         
         for pattern in move_time_patterns:
@@ -288,9 +289,13 @@ Only return JSON, no other text."""
                 day_numbers.append(str(num))
         
         # Check for swap/modify/change with multiple days
+        # BUT only if NO time blocks are mentioned (to avoid misclassifying time block swaps as day swaps)
         swap_keywords = ["swap", "modify", "change", "switch", "replace"]
-        if len(day_numbers) >= 2 and any(kw in user_input_lower for kw in swap_keywords):
-            # Multiple days mentioned with swap/modify - likely a day swap
+        time_block_keywords = ["morning", "afternoon", "evening"]
+        has_time_blocks = any(tb in user_input_lower for tb in time_block_keywords)
+        
+        if len(day_numbers) >= 2 and any(kw in user_input_lower for kw in swap_keywords) and not has_time_blocks:
+            # Multiple days mentioned with swap/modify but NO time blocks - likely a day swap
             source_day = int(day_numbers[0])
             target_day_val = int(day_numbers[1])
             return {
@@ -899,12 +904,13 @@ Only return JSON, no other text."""
         affected_sections: List[str],
         preferences: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Move a time block from one day to another, optionally regenerating vacated slot."""
+        """Move or swap a time block from one day to another, optionally regenerating vacated slot."""
         source_day = edit_command.get("source_day")
         target_day = edit_command.get("target_day")
         source_time_block = edit_command.get("source_time_block")
         target_time_block = edit_command.get("target_time_block")
         regenerate_vacated = edit_command.get("regenerate_vacated", False)
+        description = edit_command.get("description", "").lower()
         
         if not target_day or not target_time_block:
             logger.warning("MOVE_TIME_BLOCK requires target_day and target_time_block")
@@ -937,29 +943,47 @@ Only return JSON, no other text."""
             logger.warning(f"Source time block {source_time_block} not found in Day {source_day}")
             return itinerary
         
+        # Check if this is a swap (both source and target time blocks specified, and "swap" in description)
+        is_swap = (
+            "swap" in description or 
+            "switch" in description or
+            (source_time_block and target_time_block and source_day != target_day)
+        )
+        
         source_block_data = json.loads(json.dumps(source_day_data[source_time_block]))
         
-        # Move the time block
-        if target_time_block not in target_day_data:
-            target_day_data[target_time_block] = {}
+        # Get target time block data if it exists (for swap)
+        if target_time_block in target_day_data:
+            target_block_data = json.loads(json.dumps(target_day_data[target_time_block]))
+        else:
+            target_block_data = {"activities": []}
         
-        # Replace target with source (or merge if needed)
-        target_day_data[target_time_block] = source_block_data
-        
-        logger.info(f"Moved {source_time_block} from Day {source_day} to {target_time_block} of Day {target_day}")
-        
-        # Regenerate vacated source time block if requested
-        if regenerate_vacated and preferences:
-            logger.info(f"Regenerating vacated {source_time_block} for Day {source_day}")
-            # Clear the source time block
-            source_day_data[source_time_block] = {"activities": []}
-            # Regenerate it
-            itinerary = self._regenerate_time_block(
-                itinerary,
-                source_day,
-                source_time_block,
-                preferences
-            )
+        if is_swap:
+            # SWAP: Exchange both time blocks
+            # Replace target with source
+            target_day_data[target_time_block] = source_block_data
+            # Replace source with target
+            source_day_data[source_time_block] = target_block_data
+            
+            logger.info(f"Swapped Day {source_day} {source_time_block} with Day {target_day} {target_time_block}")
+        else:
+            # MOVE: Only move source to target, optionally regenerate source
+            target_day_data[target_time_block] = source_block_data
+            
+            logger.info(f"Moved {source_time_block} from Day {source_day} to {target_time_block} of Day {target_day}")
+            
+            # Regenerate vacated source time block if requested
+            if regenerate_vacated and preferences:
+                logger.info(f"Regenerating vacated {source_time_block} for Day {source_day}")
+                # Clear the source time block
+                source_day_data[source_time_block] = {"activities": []}
+                # Regenerate it
+                itinerary = self._regenerate_time_block(
+                    itinerary,
+                    source_day,
+                    source_time_block,
+                    preferences
+                )
         
         return itinerary
     
