@@ -170,6 +170,35 @@ class TravelOrchestrator:
                     "session_id": session_id
                 }
             
+            # Check if interests are missing - ask user before proceeding
+            if not preferences.get("interests") or len(preferences.get("interests", [])) == 0:
+                # Check if we've already asked about interests
+                interests_question = "What are your main interests? (e.g., culture, food, shopping, nature)"
+                if interests_question not in session.clarifying_questions:
+                    if self.conversation_manager.can_ask_clarifying_question(session_id):
+                        self.conversation_manager.add_clarifying_question(session_id, interests_question)
+                        self.conversation_manager.add_message(session_id, "assistant", interests_question)
+                        session = self.conversation_manager.get_session(session_id)
+                        return {
+                            "status": "clarifying",
+                            "message": interests_question,
+                            "question": interests_question,
+                            "clarifying_questions_count": session.clarifying_questions_count,
+                            "session_id": session_id,
+                            "conversation_history": session.conversation_history
+                        }
+                else:
+                    # We've asked but user hasn't provided interests yet - wait for response
+                    logger.info("Interests question already asked, waiting for user response")
+                    return {
+                        "status": "clarifying",
+                        "message": interests_question,
+                        "question": interests_question,
+                        "clarifying_questions_count": session.clarifying_questions_count,
+                        "session_id": session_id,
+                        "conversation_history": session.conversation_history
+                    }
+            
             # Check if user explicitly confirmed
             user_input_lower = user_input.lower()
             is_confirmation = any(word in user_input_lower for word in ["yes", "confirm", "proceed", "create", "generate", "plan", "go ahead", "sure", "okay", "ok"])
@@ -255,7 +284,19 @@ class TravelOrchestrator:
             
             logger.info(f"Searching POIs for city: '{city_name}' (original: '{preferences['city']}'), country={country}")
             
-            interests = preferences.get("interests", ["culture", "food"])  # Default interests
+            # Get interests - should not be empty at this point (we check above)
+            interests = preferences.get("interests", [])
+            if not interests or len(interests) == 0:
+                logger.warning("No interests provided - this should not happen. Asking user for interests.")
+                interests_question = "What are your main interests? (e.g., culture, food, shopping, nature)"
+                self.conversation_manager.add_message(session_id, "assistant", interests_question)
+                return {
+                    "status": "clarifying",
+                    "message": interests_question,
+                    "question": interests_question,
+                    "session_id": session_id,
+                    "conversation_history": session.conversation_history
+                }
             logger.info(f"POI search parameters: city='{city_name}', country={country}, interests={interests}, limit=30")
             
             # Try POI search - if it fails, we'll get better error info now

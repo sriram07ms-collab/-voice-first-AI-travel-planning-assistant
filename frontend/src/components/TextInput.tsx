@@ -51,7 +51,7 @@ export default function TextInput({
 
   return (
     <div className="w-full">
-      <div className="flex items-end gap-2 bg-white rounded-xl border-2 border-[#CCD0D5] p-3 shadow-sm focus-within:border-[#1877F2] focus-within:ring-2 focus-within:ring-[#1877F2]/20 transition-all duration-200">
+      <div className="flex items-end gap-1.5 bg-white rounded-lg border border-[#CCD0D5] p-2 shadow-sm focus-within:border-[#1877F2] focus-within:ring-1 focus-within:ring-[#1877F2]/20 transition-all duration-200">
         <textarea
           ref={textareaRef}
           value={message}
@@ -64,11 +64,11 @@ export default function TextInput({
             flex-1 resize-none border-none outline-none bg-transparent
             text-[#050505] placeholder:text-[#65676B]
             disabled:opacity-50 disabled:cursor-not-allowed
-            max-h-32 overflow-y-auto scrollbar-thin
+            max-h-24 overflow-y-auto scrollbar-thin
             text-sm leading-relaxed
           "
           style={{
-            minHeight: '24px',
+            minHeight: '20px',
             height: 'auto',
           }}
         />
@@ -76,18 +76,18 @@ export default function TextInput({
           onClick={handleSubmit}
           disabled={disabled || !message.trim()}
           className="
-            px-4 py-2 bg-[#1877F2] text-white rounded-lg
+            px-3 py-1.5 bg-[#1877F2] text-white rounded-md
             hover:bg-[#166FE5]
             active:scale-95
             disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100
-            transition-all duration-200 font-semibold text-sm
-            flex items-center gap-2 shadow-md
-            hover:shadow-lg
+            transition-all duration-200 font-semibold text-xs
+            flex items-center gap-1.5 shadow-sm
+            hover:shadow-md
           "
         >
           <span>Send</span>
           <svg
-            className="w-4 h-4"
+            className="w-3 h-3"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -101,8 +101,8 @@ export default function TextInput({
           </svg>
         </button>
       </div>
-      <p className="text-xs text-[#65676B] mt-2 text-center">
-        Press <kbd className="px-1.5 py-0.5 bg-[#E4E6EB] rounded text-[#050505] font-medium">Enter</kbd> to send, <kbd className="px-1.5 py-0.5 bg-[#E4E6EB] rounded text-[#050505] font-medium">Shift+Enter</kbd> for new line
+      <p className="text-xs text-[#65676B] mt-1 text-center">
+        Press <kbd className="px-1 py-0.5 bg-[#E4E6EB] rounded text-[#050505] font-medium text-xs">Enter</kbd> to send, <kbd className="px-1 py-0.5 bg-[#E4E6EB] rounded text-[#050505] font-medium text-xs">Shift+Enter</kbd> for new line
       </p>
     </div>
   );

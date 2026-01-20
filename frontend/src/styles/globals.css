@@ -25,8 +25,8 @@
   /* Modern Card Styles - Meta Colors */
   .card {
     background-color: #FFFFFF;
-    border-radius: 0.75rem;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+    border-radius: 0.5rem;
+    box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.05);
     border: 1px solid #CCD0D5;
     @apply transition-all duration-300;
   }
@@ -72,14 +72,14 @@
   .message-user {
     background-color: #1877F2;
     color: #FFFFFF;
-    @apply rounded-2xl rounded-tr-sm;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
+    @apply rounded-xl rounded-tr-sm;
+    box-shadow: 0 1px 1px 0 rgba(0, 0, 0, 0.05);
   }
 
   .message-assistant {
     background-color: #E4E6EB;
     color: #050505;
-    @apply rounded-2xl rounded-tl-sm;
+    @apply rounded-xl rounded-tl-sm;
     border: 1px solid #CCD0D5;
   }
 

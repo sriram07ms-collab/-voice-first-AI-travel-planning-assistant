@@ -107,21 +107,29 @@ class IntentClassifier:
             # Number misrecognitions
             r'\btree\b': "three",  # "tree day" → "three day" → "3 day"
             r'\bfor\b(?!\s+(?:the|a|an|in|on|at|to))': "four",  # "for days" → "four days" (but not "for the trip")
-            r'\bto\b(?!\s+(?:the|a|an|in|on|at|day|mumbai))': "two",  # "to days" → "two days" (but not "to Mumbai")
+            r'\bto\b(?!\s+(?:the|a|an|in|on|at|day|mumbai|chennai|jaipur|delhi|bangalore|hyderabad|kolkata|pune))': "two",  # "to days" → "two days" (but not "to Mumbai")
             # Day misrecognitions
             r'\bplay\s+one\b': "swap day 1",
             r'\bplay\s+day\s+(\d+)\b': r"swap day \1",
             r'\bplace\s+one\b': "swap day 1",
             r'\bplace\s+day\s+(\d+)\b': r"swap day \1",
+            # Common voice command variations
+            r'\bchange\s+day\s+(\d+)\s+to\s+day\s+(\d+)\b': r"swap day \1 with day \2",  # "change day 1 to day 2" → "swap day 1 with day 2"
+            r'\bmake\s+day\s+(\d+)\s+more\s+relaxed\b': r"make day \1 more relaxed",  # Keep as is
+            r'\bmake\s+day\s+(\d+)\s+faster\b': r"make day \1 faster",  # Keep as is
+            r'\badd\s+activity\s+to\s+day\s+(\d+)\b': r"add activity to day \1",  # Keep as is
+            r'\bremove\s+activity\s+from\s+day\s+(\d+)\b': r"remove activity from day \1",  # Keep as is
             # Voice transcription artifacts
             r'\bum\b': "",
             r'\buh\b': "",
-            r'\blike\b(?!\s+(?:food|culture|shopping))': "",  # Remove filler "like" but keep "like food"
+            r'\blike\b(?!\s+(?:food|culture|shopping|nature|beaches))': "",  # Remove filler "like" but keep "like food"
             r'\byou know\b': "",
             r'\bwell\s+': "",  # Remove leading "well"
             r'\bso\s+': "",  # Remove leading "so"
             r'\bactually\s+': "",  # Remove "actually"
             r'\bbasically\s+': "",  # Remove "basically"
+            r'\bkind of\b': "",  # Remove "kind of"
+            r'\bsort of\b': "",  # Remove "sort of"
         }
         
         # Apply STT corrections
@@ -129,7 +137,13 @@ class IntentClassifier:
             text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
         
         # Fix "day to" → "day 2" (common voice error)
-        text = re.sub(r'\bday\s+to\b', 'day 2', text, flags=re.IGNORECASE)
+        text = re.sub(r'\bday\s+to\b(?!\s+(?:the|a|an|mumbai|chennai|jaipur|delhi|bangalore|hyderabad|kolkata|pune))', 'day 2', text, flags=re.IGNORECASE)
+        
+        # Fix "day too" → "day 2" (another common voice error)
+        text = re.sub(r'\bday\s+too\b(?!\s+(?:the|a|an|mumbai|chennai|jaipur|delhi|bangalore|hyderabad|kolkata|pune))', 'day 2', text, flags=re.IGNORECASE)
+        
+        # Fix "day tu" → "day 2" (STT error)
+        text = re.sub(r'\bday\s+tu\b(?!\s+(?:the|a|an|mumbai|chennai|jaipur|delhi|bangalore|hyderabad|kolkata|pune))', 'day 2', text, flags=re.IGNORECASE)
         
         # Additional Chennai-specific voice corrections
         chennai_variations = {

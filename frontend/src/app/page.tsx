@@ -192,16 +192,16 @@ function TravelAssistantContent() {
     <div className="min-h-screen flex flex-col">
       {/* Modern Header - Meta Style */}
       <header className="glass border-b border-[#CCD0D5] sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
             <div className="flex-1">
-              <h1 className="text-3xl font-bold text-[#1877F2] mb-1">
+              <h1 className="text-xl font-bold text-[#1877F2]">
                 ✈️ Voice-First Travel Assistant
               </h1>
-              <p className="text-[#65676B] text-sm">Plan your perfect trip with AI-powered assistance</p>
+              <p className="text-[#65676B] text-xs">Plan your perfect trip with AI-powered assistance</p>
             </div>
-            <div className="flex items-center gap-3">
-              <label className="flex items-center gap-2 text-sm text-[#050505] cursor-pointer group">
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs text-[#050505] cursor-pointer group">
                 <div className="relative">
                   <input
                     type="checkbox"
@@ -209,22 +209,22 @@ function TravelAssistantContent() {
                     onChange={(e) => setEnableTTS(e.target.checked)}
                     className="sr-only"
                   />
-                  <div className={`w-11 h-6 rounded-full transition-colors duration-200 ${
+                  <div className={`w-9 h-5 rounded-full transition-colors duration-200 ${
                     enableTTS ? 'bg-[#1877F2]' : 'bg-[#CCD0D5]'
                   }`}>
-                    <div className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-200 mt-0.5 ${
-                      enableTTS ? 'translate-x-5' : 'translate-x-0.5'
+                    <div className={`w-4 h-4 bg-white rounded-full shadow-sm transform transition-transform duration-200 mt-0.5 ${
+                      enableTTS ? 'translate-x-4' : 'translate-x-0.5'
                     }`} />
                   </div>
                 </div>
-                <span className="font-medium">Voice Responses</span>
+                <span className="font-medium">Voice</span>
               </label>
               {sessionId && (
                 <button
                   onClick={clearConversation}
-                  className="btn-secondary text-sm px-4 py-2"
+                  className="btn-secondary text-xs px-3 py-1.5"
                 >
-                  Clear Chat
+                  Clear
                 </button>
               )}
             </div>
@@ -232,16 +232,16 @@ function TravelAssistantContent() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      <main className="flex-1 max-w-3xl mx-auto w-full px-3 sm:px-4 py-3 sm:py-4">
         {/* Single chat window - ChatGPT/Gemini style */}
         <div className="card w-full flex flex-col">
           {/* Tabs at top */}
-          <div className="flex items-center gap-1 p-2 border-b border-[#CCD0D5] flex-shrink-0 bg-[#F0F2F5]">
+          <div className="flex items-center gap-0.5 p-1 border-b border-[#CCD0D5] flex-shrink-0 bg-[#F0F2F5]">
             <button
               onClick={() => setActiveTab('chat')}
-              className={`px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
+              className={`px-3 py-1.5 font-medium text-xs rounded-md transition-all duration-200 ${
                 activeTab === 'chat'
-                  ? 'bg-[#1877F2] text-white shadow-md'
+                  ? 'bg-[#1877F2] text-white shadow-sm'
                   : 'text-[#65676B] hover:text-[#050505] hover:bg-white'
               }`}
             >
@@ -276,18 +276,18 @@ function TravelAssistantContent() {
           {/* Content Area - switches based on active tab (page scrolls, no inner scroll) */}
           <div 
             ref={messagesContainerRef}
-            className="p-4 space-y-4"
+            className="p-3 space-y-2"
           >
             {/* Chat Tab Content */}
             {activeTab === 'chat' && (
               <>
                 {messages.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-full text-center py-12 animate-fade-in">
-                    <div className="w-16 h-16 bg-[#1877F2] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                      <span className="text-3xl">✈️</span>
+                  <div className="flex flex-col items-center justify-center h-full text-center py-8 animate-fade-in">
+                    <div className="w-12 h-12 bg-[#1877F2] rounded-xl flex items-center justify-center mb-3 shadow-md">
+                      <span className="text-2xl">✈️</span>
                     </div>
-                    <h3 className="text-xl font-semibold text-[#050505] mb-2">Start Planning Your Trip!</h3>
-                    <p className="text-[#65676B] max-w-md">Ask me anything about your travel plans. I can help you create a personalized itinerary.</p>
+                    <h3 className="text-base font-semibold text-[#050505] mb-1">Start Planning Your Trip!</h3>
+                    <p className="text-sm text-[#65676B] max-w-md">Ask me anything about your travel plans. I can help you create a personalized itinerary.</p>
                   </div>
                 )}
                 
@@ -301,24 +301,24 @@ function TravelAssistantContent() {
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                        className={`max-w-[85%] rounded-xl px-3 py-2 ${
                           message.role === 'user'
                             ? 'message-user'
                             : isClarifying
-                            ? 'bg-amber-50 border-2 border-amber-300 text-[#050505]'
+                            ? 'bg-amber-50 border border-amber-300 text-[#050505]'
                             : 'message-assistant'
                         }`}
                       >
                         {isClarifying && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs font-semibold text-amber-700 bg-amber-200 px-2 py-1 rounded-full">
-                              💡 Clarifying Question
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <span className="text-xs font-semibold text-amber-700 bg-amber-200 px-1.5 py-0.5 rounded-full">
+                              💡 Clarifying
                             </span>
                           </div>
                         )}
-                        <p className="whitespace-pre-wrap break-words leading-relaxed">{message.content}</p>
+                        <p className="whitespace-pre-wrap break-words leading-relaxed text-sm">{message.content}</p>
                         {message.timestamp && (
-                          <p className={`text-xs mt-2 ${
+                          <p className={`text-xs mt-1.5 ${
                             message.role === 'user' ? 'text-white/80' : 'text-[#65676B]'
                           }`}>
                             {new Date(message.timestamp).toLocaleTimeString('en-US', {
@@ -431,11 +431,11 @@ function TravelAssistantContent() {
           </div>
           
           {/* Input Section at Bottom - Always visible */}
-          <div className="border-t border-[#CCD0D5] bg-[#F0F2F5] p-4 flex-shrink-0">
+          <div className="border-t border-[#CCD0D5] bg-[#F0F2F5] p-2.5 flex-shrink-0">
             {/* Error Display */}
             {error && (
-              <div className="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg animate-fade-in">
-                <p className="text-sm text-red-800 font-medium flex items-center gap-2">
+              <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded-md animate-fade-in">
+                <p className="text-xs text-red-800 font-medium flex items-center gap-1.5">
                   <span>⚠️</span>
                   {error}
                 </p>
@@ -443,7 +443,7 @@ function TravelAssistantContent() {
             )}
             
             {/* Text Input */}
-            <div className="mb-3">
+            <div className="mb-2">
               <TextInput 
                 onSendMessage={handleTextMessage} 
                 disabled={isProcessing}
@@ -452,20 +452,20 @@ function TravelAssistantContent() {
             </div>
             
             {/* Voice Input Option */}
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center justify-center gap-4 w-full">
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="flex items-center justify-center gap-3 w-full">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
-                <span className="text-xs font-medium text-[#65676B] uppercase tracking-wider">or</span>
+                <span className="text-xs font-medium text-[#65676B] uppercase tracking-wide">or</span>
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <VoiceInput 
                   onTranscript={handleTranscript} 
                   onInterimTranscript={handleInterimTranscript}
                   disabled={isProcessing}
                 />
                 {showVoicePrompt && !isProcessing && (
-                  <p className="text-sm text-[#1877F2] font-medium animate-pulse">
+                  <p className="text-xs text-[#1877F2] font-medium animate-pulse">
                     💬 Click to speak
                   </p>
                 )}

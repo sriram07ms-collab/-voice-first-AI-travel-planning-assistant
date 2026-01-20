@@ -400,19 +400,19 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
   const displayTextTrimmed = displayText.trim();
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-1.5">
       <button
         onClick={toggleRecording}
         disabled={disabled}
         className={`
-          w-16 h-16 rounded-full flex items-center justify-center
+          w-12 h-12 rounded-full flex items-center justify-center
           transition-all duration-200
           ${isRecording
             ? 'bg-red-500 hover:bg-red-600 animate-pulse'
             : 'bg-[#1877F2] hover:bg-[#166FE5]'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-          shadow-lg hover:shadow-xl
+          shadow-md hover:shadow-lg
           disabled:animate-none
         `}
         aria-label={isRecording ? 'Stop recording' : 'Start recording'}
@@ -420,7 +420,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
       >
         {isRecording ? (
           <svg
-            className="w-8 h-8 text-white"
+            className="w-6 h-6 text-white"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -432,7 +432,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
           </svg>
         ) : (
           <svg
-            className="w-8 h-8 text-white"
+            className="w-6 h-6 text-white"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -446,10 +446,10 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
       </button>
       
       {isRecording && (
-        <div className="flex flex-col items-center gap-1">
-          <p className="text-sm text-[#65676B] animate-pulse">Recording...</p>
+        <div className="flex flex-col items-center gap-0.5">
+          <p className="text-xs text-[#65676B] animate-pulse">Recording...</p>
           {displayTextTrimmed && (
-            <p className="text-sm text-[#65676B] italic max-w-md text-center">
+            <p className="text-xs text-[#65676B] italic max-w-md text-center">
               "{displayTextTrimmed}"
             </p>
           )}
@@ -457,7 +457,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
       )}
       
       {error && (
-        <p className="text-sm text-red-600 mt-2 text-center max-w-md">{error}</p>
+        <p className="text-xs text-red-600 mt-1 text-center max-w-md">{error}</p>
       )}
     </div>
   );
