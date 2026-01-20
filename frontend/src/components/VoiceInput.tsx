@@ -103,10 +103,10 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
     console.log('Initializing speech recognition (ONCE)');
     const recognition = new SpeechRecognition();
     
-    // Configure recognition - OPTIMIZED for lower latency
+    // Configure recognition - OPTIMIZED for lower latency and smooth experience
     recognition.continuous = false; // Stop after each input
     recognition.interimResults = true; // Show interim results for real-time feedback
-    recognition.lang = 'en-US';
+    recognition.lang = 'en-IN'; // Use Indian English for better recognition of Indian city names
     recognition.maxAlternatives = 1;
     
     // Note: Some browsers support serviceURI for faster recognition
@@ -175,7 +175,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
       if (newFinalText.trim()) {
         clearSendTimeout();
         
-        // Send immediately after final result (shorter delay for responsiveness)
+        // Send immediately after final result (optimized delay for smooth experience)
         sendTimeoutRef.current = setTimeout(() => {
           const textToSend = accumulatedFinalRef.current.trim();
           if (textToSend && !isUserStoppedRef.current) {
@@ -183,7 +183,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
             sendTranscript(textToSend);
           }
           sendTimeoutRef.current = null;
-        }, 500); // Reduced to 500ms for faster response
+        }, 800); // 800ms delay for better accuracy - allows more words to be finalized
       }
     };
 
@@ -192,7 +192,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
       console.log('Speech ended (pause detected)');
       clearSendTimeout();
       
-      // Send accumulated final transcript after speech ends (shorter delay)
+      // Send accumulated final transcript after speech ends (optimized delay)
       sendTimeoutRef.current = setTimeout(() => {
         const currentFinal = accumulatedFinalRef.current.trim();
         if (currentFinal && !isUserStoppedRef.current) {
@@ -200,7 +200,7 @@ export default function VoiceInput({ onTranscript, disabled = false, onInterimTr
           sendTranscript(currentFinal);
         }
         sendTimeoutRef.current = null;
-      }, 300); // Reduced to 300ms for faster response
+      }, 600); // 600ms delay for better accuracy - ensures all words are captured
     };
 
     // Handle errors

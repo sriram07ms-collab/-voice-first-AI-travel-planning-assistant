@@ -296,8 +296,14 @@ class TravelOrchestrator:
                 error_msg = f"Could not find any points of interest for {city_name}."
                 if interests:
                     error_msg += f" Searched for interests: {', '.join(interests)}."
-                error_msg += f" Please verify the city name is correct. If '{city_name}' is correct,"
-                error_msg += " there may be no POIs matching your interests in OpenStreetMap, or the API may be temporarily unavailable."
+                
+                # Add Chennai-specific help
+                if city_name.lower() in ["chennai", "madras"]:
+                    error_msg += f" For Chennai, please try: 'Chennai, Tamil Nadu' or 'Chennai, India'."
+                else:
+                    error_msg += f" Please verify the city name is correct."
+                
+                error_msg += " The OpenStreetMap API may be temporarily unavailable. Please try again in a few moments."
                 
                 return {
                     "status": "error",

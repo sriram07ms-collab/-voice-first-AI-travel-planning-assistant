@@ -52,8 +52,23 @@ def get_city_coordinates(
         ValueError: If city not found
         requests.RequestException: If API request fails
     """
-    # Build query string
-    query_parts = [city]
+    # Normalize city name (handle common variations)
+    city_normalized = city.strip()
+    
+    # Special handling for Indian cities with common variations
+    indian_city_fixes = {
+        "chennai": "Chennai, Tamil Nadu, India",
+        "mumbai": "Mumbai, Maharashtra, India",
+        "delhi": "Delhi, India",
+        "bangalore": "Bangalore, Karnataka, India",
+        "hyderabad": "Hyderabad, Telangana, India",
+        "kolkata": "Kolkata, West Bengal, India",
+        "pune": "Pune, Maharashtra, India",
+        "jaipur": "Jaipur, Rajasthan, India"
+    }
+    
+    # Build query string with fallback strategies
+    query_parts = [city_normalized]
     if state:
         query_parts.append(state)
     if country:
@@ -68,7 +83,7 @@ def get_city_coordinates(
     params = {
         "q": query,
         "format": "json",
-        "limit": 1,
+        "limit": 5,  # Get more results for better matching
         "addressdetails": 1
     }
     
@@ -78,29 +93,73 @@ def get_city_coordinates(
     
     try:
         logger.info(f"Geocoding request: {query}")
-        response = requests.get(NOMINATIM_API_URL, params=params, headers=headers, timeout=10)
+        response = requests.get(NOMINATIM_API_URL, params=params, headers=headers, timeout=15)
         response.raise_for_status()
         
         data = response.json()
         
         if not data:
-            raise ValueError(f"City '{city}' not found. Try specifying country or state.")
+            # Try fallback with normalized city name
+            city_lower = city_normalized.lower()
+            if city_lower in indian_city_fixes:
+                logger.info(f"Trying fallback query for {city_normalized}: {indian_city_fixes[city_lower]}")
+                _rate_limit()  # Rate limit before retry
+                params["q"] = indian_city_fixes[city_lower]
+                response = requests.get(NOMINATIM_API_URL, params=params, headers=headers, timeout=15)
+                response.raise_for_status()
+                data = response.json()
+            
+            if not data:
+                raise ValueError(f"City '{city}' not found. Try specifying country or state.")
         
-        result = data[0]
-        lat = float(result["lat"])
-        lon = float(result["lon"])
+        # Find best match (prefer exact city match)
+        best_result = None
+        for result in data:
+            address = result.get("address", {})
+            result_city = address.get("city") or address.get("town") or address.get("village")
+            if result_city and city_normalized.lower() in result_city.lower():
+                best_result = result
+                break
+        
+        # If no exact match, use first result
+        if not best_result:
+            best_result = data[0]
+        
+        lat = float(best_result["lat"])
+        lon = float(best_result["lon"])
         
         logger.info(f"Found coordinates for {query}: ({lat}, {lon})")
         
         return {
             "lat": lat,
             "lon": lon,
-            "display_name": result.get("display_name", query),
-            "place_id": result.get("place_id")
+            "display_name": best_result.get("display_name", query),
+            "place_id": best_result.get("place_id")
         }
     
     except requests.RequestException as e:
-        logger.error(f"Geocoding API request failed: {e}")
+        logger.error(f"Geocoding API request failed for '{city}': {e}")
+        # Try fallback for Indian cities
+        city_lower = city_normalized.lower()
+        if city_lower in indian_city_fixes and not country:
+            try:
+                logger.info(f"Retrying geocoding with fallback: {indian_city_fixes[city_lower]}")
+                _rate_limit()
+                params["q"] = indian_city_fixes[city_lower]
+                response = requests.get(NOMINATIM_API_URL, params=params, headers=headers, timeout=15)
+                response.raise_for_status()
+                data = response.json()
+                if data:
+                    result = data[0]
+                    return {
+                        "lat": float(result["lat"]),
+                        "lon": float(result["lon"]),
+                        "display_name": result.get("display_name", query),
+                        "place_id": result.get("place_id")
+                    }
+            except Exception as fallback_error:
+                logger.error(f"Fallback geocoding also failed: {fallback_error}")
+        
         raise requests.RequestException(f"Failed to geocode city '{city}': {e}")
     except (KeyError, ValueError, IndexError) as e:
         logger.error(f"Failed to parse geocoding response: {e}")

@@ -618,9 +618,17 @@ def search_pois_overpass(
         logger.info(f"Found {len(pois)} POIs for {city}")
         return pois
     
+    except ValueError as e:
+        # Geocoding error - city not found
+        logger.error(f"Geocoding error for {city}: {e}")
+        raise ValueError(f"Could not find city '{city}'. Please check the city name spelling. For Indian cities, try including state name (e.g., 'Chennai, Tamil Nadu').")
+    except requests.RequestException as e:
+        # API request error
+        logger.error(f"OpenStreetMap API error for {city}: {e}", exc_info=True)
+        raise requests.RequestException(f"Failed to search POIs for {city}. The OpenStreetMap API may be temporarily unavailable. Please try again in a few moments.")
     except Exception as e:
-        logger.error(f"Error searching POIs: {e}", exc_info=True)
-        raise
+        logger.error(f"Error searching POIs for {city}: {e}", exc_info=True)
+        raise Exception(f"An unexpected error occurred while searching POIs for {city}: {str(e)}")
 
 
 def _apply_constraints(pois: List[Dict], constraints: Dict[str, Any]) -> List[Dict]:

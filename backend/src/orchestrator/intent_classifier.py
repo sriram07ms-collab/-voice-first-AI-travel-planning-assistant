@@ -130,7 +130,18 @@ class IntentClassifier:
         
         # Fix "day to" → "day 2" (common voice error)
         text = re.sub(r'\bday\s+to\b', 'day 2', text, flags=re.IGNORECASE)
-        text = re.sub(r'\bday\s+to\b', 'day 2', text, flags=re.IGNORECASE)
+        
+        # Additional Chennai-specific voice corrections
+        chennai_variations = {
+            r'\bchen\s+nai\b': "Chennai",
+            r'\bchennai\b': "Chennai",  # Ensure proper capitalization
+            r'\bmad\s+ras\b': "Chennai",
+            r'\bmadras\b': "Chennai",
+            r'\bshen\s+nai\b': "Chennai",  # Common mispronunciation
+            r'\bshennai\b': "Chennai",
+        }
+        for pattern, replacement in chennai_variations.items():
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
         
         # Fix spacing issues after replacements
         text = re.sub(r'\s+', ' ', text).strip()

@@ -232,9 +232,9 @@ function TravelAssistantContent() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         {/* Single chat window - ChatGPT/Gemini style */}
-        <div className="card h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+        <div className="card w-full flex flex-col">
           {/* Tabs at top */}
           <div className="flex items-center gap-1 p-2 border-b border-[#CCD0D5] flex-shrink-0 bg-[#F0F2F5]">
             <button
@@ -273,10 +273,10 @@ function TravelAssistantContent() {
             )}
           </div>
           
-          {/* Content Area - switches based on active tab */}
+          {/* Content Area - switches based on active tab (page scrolls, no inner scroll) */}
           <div 
             ref={messagesContainerRef}
-            className="flex-1 p-4 space-y-4 min-h-0 overflow-y-auto scrollbar-thin"
+            className="p-4 space-y-4"
           >
             {/* Chat Tab Content */}
             {activeTab === 'chat' && (
