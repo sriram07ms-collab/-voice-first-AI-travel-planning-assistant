@@ -236,8 +236,8 @@ function TravelAssistantContent() {
         {/* Single unified card containing conversation + itinerary/sources */}
         <div className="card h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-          {/* Left Panel - Conversation */}
-          <div className="lg:col-span-2 flex flex-col min-h-0">
+            {/* Left Panel - Conversation */}
+            <div className="lg:col-span-2 flex flex-col min-h-0">
             {/* Conversation Area */}
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Header */}
@@ -383,8 +383,8 @@ function TravelAssistantContent() {
             </div>
           </div>
 
-          {/* Right Panel - Itinerary & Sources (inside same outer card) */}
-          <div className="lg:col-span-1 flex flex-col gap-4 min-h-0">
+            {/* Right Panel - Itinerary & Sources (inside same outer card) */}
+            <div className="lg:col-span-1 flex flex-col gap-4 min-h-0">
             {/* Tabs */}
             <div className="p-1 flex gap-1 bg-[#F0F2F5] rounded-lg">
               <button
@@ -500,6 +500,7 @@ function TravelAssistantContent() {
                   </div>
                 )}
               </div>
+            </div>
             </div>
           </div>
         </div>
