@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { ConversationProvider, useConversation } from '../context/ConversationContext';
 import VoiceInput from '../components/VoiceInput';
 import TextInput from '../components/TextInput';
@@ -41,6 +41,22 @@ function TravelAssistantContent() {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
   const [showVoicePrompt, setShowVoicePrompt] = useState<boolean>(false);
+  
+  // Ref for messages container for auto-scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    // Small delay to ensure DOM is updated
+    const timeoutId = setTimeout(() => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 100);
+    
+    return () => clearTimeout(timeoutId);
+  }, [messages, liveTranscript, isProcessing]);
 
   const handleTranscript = async (text: string) => {
     if (!text.trim()) return;
@@ -218,11 +234,12 @@ function TravelAssistantContent() {
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)]">
-          {/* Left Panel - Chat */}
-          <div className="lg:col-span-2 flex flex-col gap-4 min-h-0">
-            {/* Chat Messages Card */}
+          {/* Left Panel - Unified Chat */}
+          <div className="lg:col-span-2 flex flex-col min-h-0">
+            {/* Unified Chat Card with Input at Bottom */}
             <div className="card flex-1 flex flex-col min-h-0 overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b border-slate-200">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-slate-200 flex-shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <h2 className="text-lg font-semibold text-slate-800">Conversation</h2>
@@ -234,7 +251,11 @@ function TravelAssistantContent() {
                 )}
               </div>
               
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+              {/* Scrollable Messages Area */}
+              <div 
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin min-h-0"
+              >
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12 animate-fade-in">
                     <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
@@ -310,45 +331,51 @@ function TravelAssistantContent() {
                     </div>
                   </div>
                 )}
+                
+                {/* Invisible element for auto-scroll */}
+                <div ref={messagesEndRef} />
               </div>
               
-              {/* Error Display */}
-              {error && (
-                <div className="mx-4 mb-4 p-3 bg-red-50 border-2 border-red-200 rounded-lg animate-fade-in">
-                  <p className="text-sm text-red-800 font-medium flex items-center gap-2">
-                    <span>⚠️</span>
-                    {error}
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Input Section */}
-            <div className="card p-4">
-              <div className="mb-3">
-                <TextInput 
-                  onSendMessage={handleTextMessage} 
-                  disabled={isProcessing}
-                  placeholder="Type your message or ask a question..."
-                />
-              </div>
-              <div className="flex flex-col items-center gap-3">
-                <div className="flex items-center justify-center gap-4 w-full">
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-                  <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">or</span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <VoiceInput 
-                    onTranscript={handleTranscript} 
-                    onInterimTranscript={handleInterimTranscript}
-                    disabled={isProcessing}
-                  />
-                  {showVoicePrompt && !isProcessing && (
-                    <p className="text-sm text-blue-600 font-medium animate-pulse">
-                      💬 Click to speak
+              {/* Sticky Input Section at Bottom */}
+              <div className="border-t border-slate-200 bg-slate-50 p-4 flex-shrink-0">
+                {/* Error Display */}
+                {error && (
+                  <div className="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg animate-fade-in">
+                    <p className="text-sm text-red-800 font-medium flex items-center gap-2">
+                      <span>⚠️</span>
+                      {error}
                     </p>
-                  )}
+                  </div>
+                )}
+                
+                {/* Text Input */}
+                <div className="mb-3">
+                  <TextInput 
+                    onSendMessage={handleTextMessage} 
+                    disabled={isProcessing}
+                    placeholder="Type your message or ask a question..."
+                  />
+                </div>
+                
+                {/* Voice Input Option */}
+                <div className="flex flex-col items-center gap-2">
+                  <div className="flex items-center justify-center gap-4 w-full">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+                    <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">or</span>
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <VoiceInput 
+                      onTranscript={handleTranscript} 
+                      onInterimTranscript={handleInterimTranscript}
+                      disabled={isProcessing}
+                    />
+                    {showVoicePrompt && !isProcessing && (
+                      <p className="text-sm text-blue-600 font-medium animate-pulse">
+                        💬 Click to speak
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

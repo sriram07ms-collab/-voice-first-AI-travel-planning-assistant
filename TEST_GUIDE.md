@@ -1598,6 +1598,123 @@ System: [Shows success message, user receives email with PDF]
 
 ---
 
+### Scenario 21: Food-Focused Itinerary
+
+**Input (Voice/Text):**
+```
+"Plan a 2-day trip to Chennai. I like food. Relaxed pace."
+```
+
+**System Flow:**
+1. Intent Classification: `PLAN_TRIP`
+2. Entity Extraction: city="Chennai", duration=2, interests=["food"], pace="relaxed"
+3. POI Search MCP → Returns restaurants, cafes, food places
+4. Itinerary Builder MCP → Creates food-focused plan prioritizing restaurants
+5. Feasibility Evaluator → Validates plan
+6. Grounding Evaluator → Checks all sources
+
+**Expected Output:**
+```json
+{
+  "status": "success",
+  "itinerary": {
+    "city": "Chennai",
+    "duration_days": 2,
+    "interests": ["food"],
+    "pace": "relaxed",
+    "day_1": {
+      "morning": [
+        {
+          "activity": "Breakfast at Saravana Bhavan",
+          "time": "09:00 - 10:30",
+          "duration_minutes": 90,
+          "category": "restaurant",
+          "source_id": "node:123456",
+          "description": "Famous South Indian vegetarian restaurant"
+        }
+      ],
+      "afternoon": [
+        {
+          "activity": "Lunch at Anjappar Chettinad Restaurant",
+          "time": "12:30 - 14:00",
+          "duration_minutes": 90,
+          "category": "restaurant",
+          "source_id": "node:123457",
+          "description": "Authentic Chettinad cuisine"
+        }
+      ],
+      "evening": [
+        {
+          "activity": "Dinner at The Marina",
+          "time": "19:00 - 21:00",
+          "duration_minutes": 120,
+          "category": "restaurant",
+          "source_id": "node:123458",
+          "description": "Seafood restaurant with beach view"
+        }
+      ]
+    },
+    "day_2": {
+      "morning": [
+        {
+          "activity": "Breakfast at Murugan Idli Shop",
+          "time": "08:30 - 10:00",
+          "duration_minutes": 90,
+          "category": "restaurant",
+          "source_id": "node:123459"
+        }
+      ],
+      "afternoon": [
+        {
+          "activity": "Lunch at Rayar's Mess",
+          "time": "12:00 - 13:30",
+          "duration_minutes": 90,
+          "category": "restaurant",
+          "source_id": "node:123460"
+        }
+      ],
+      "evening": [
+        {
+          "activity": "Dinner at Zaitoon",
+          "time": "19:00 - 21:00",
+          "duration_minutes": 120,
+          "category": "restaurant",
+          "source_id": "node:123461"
+        }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "type": "openstreetmap",
+      "poi": "Saravana Bhavan",
+      "source_id": "node:123456",
+      "url": "https://www.openstreetmap.org/node/123456"
+    }
+  ],
+  "evaluation": {
+    "feasibility": {
+      "is_feasible": true,
+      "score": 0.95
+    },
+    "grounding": {
+      "is_grounded": true,
+      "score": 0.98
+    }
+  },
+  "explanation": "I've created a 2-day food-focused itinerary for Chennai with relaxed pace. Each day includes breakfast, lunch, and dinner at different restaurants showcasing Chennai's diverse culinary scene, from traditional South Indian to Chettinad and seafood specialties."
+}
+```
+
+**Validation Criteria:**
+- ✅ At least 60% of activities should be restaurants/cafes/food places
+- ✅ Multiple food experiences per day (breakfast, lunch, dinner)
+- ✅ Restaurants should be distributed across morning, afternoon, and evening time slots
+- ✅ All restaurants should have valid source IDs
+- ✅ Itinerary respects relaxed pace (2-3 activities per day)
+
+---
+
 ## Testing Checklist
 
 Use this checklist to verify all scenarios:
@@ -1622,6 +1739,7 @@ Use this checklist to verify all scenarios:
 - [ ] Scenario 18: Multiple sequential edits
 - [ ] Scenario 19: Explanation with missing source
 - [ ] Scenario 20: Complete conversation flow
+- [ ] Scenario 21: Food-focused itinerary (restaurants prioritized)
 
 ---
 

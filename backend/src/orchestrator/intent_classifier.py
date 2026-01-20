@@ -39,28 +39,104 @@ class IntentClassifier:
     def normalize_voice_input(self, text: str) -> str:
         """
         Normalize voice input text.
-        Removes common voice transcription artifacts.
+        Removes common voice transcription artifacts and fixes STT errors.
         
         Args:
             text: Raw voice input text
         
         Returns:
-            Normalized text
+            Normalized text with corrections applied
         """
         # Remove extra whitespace
         text = re.sub(r'\s+', ' ', text).strip()
         
-        # Fix common voice transcription issues
-        replacements = {
-            "um": "",
-            "uh": "",
-            "like": "",
-            "you know": "",
-            "  ": " "  # Double spaces
+        # Dictionary of common Indian city names with their common mispronunciations
+        city_corrections = {
+            "jai poor": "Jaipur",
+            "jai poore": "Jaipur",
+            "jai pur": "Jaipur",
+            "jay poor": "Jaipur",
+            "mum bye": "Mumbai",
+            "bom bay": "Mumbai",
+            "del he": "Delhi",
+            "ban ga lore": "Bangalore",
+            "ban ga low": "Bangalore",
+            "chen nai": "Chennai",
+            "mad ras": "Chennai",
+            "cal cut ta": "Kolkata",
+            "cal cut": "Kolkata",
+            "hya der a bad": "Hyderabad",
+            "pune": "Pune",
+            "ah med a bad": "Ahmedabad",
+            "sur at": "Surat",
+            "jaipur": "Jaipur",
+            "mumbai": "Mumbai",
+            "delhi": "Delhi",
+            "bangalore": "Bangalore",
+            "chennai": "Chennai",
+            "kolkata": "Kolkata",
+            "hyderabad": "Hyderabad"
         }
         
-        for old, new in replacements.items():
-            text = text.replace(old, new)
+        # Fix city name mispronunciations (case-insensitive, whole word match)
+        text_lower = text.lower()
+        for wrong, correct in city_corrections.items():
+            # Use word boundaries to avoid partial matches
+            pattern = r'\b' + re.escape(wrong.lower()) + r'\b'
+            if re.search(pattern, text_lower):
+                text = re.sub(pattern, correct, text, flags=re.IGNORECASE)
+                logger.info(f"Corrected city name: '{wrong}' → '{correct}'")
+        
+        # Fix number word to digit conversions (one, two, three → 1, 2, 3)
+        number_words = {
+            "zero": "0", "one": "1", "two": "2", "three": "3", "four": "4",
+            "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
+            "ten": "10", "eleven": "11", "twelve": "12", "thirteen": "13",
+            "fourteen": "14", "fifteen": "15", "sixteen": "16", "seventeen": "17",
+            "eighteen": "18", "nineteen": "19", "twenty": "20", "thirty": "30"
+        }
+        
+        # Replace number words in context (e.g., "day one" → "day 1", "three days" → "3 days")
+        for word, digit in number_words.items():
+            # Match whole word only
+            pattern = r'\b' + word + r'\b'
+            text = re.sub(pattern, digit, text, flags=re.IGNORECASE)
+        
+        # Fix common STT errors for numbers and days
+        stt_corrections = {
+            # Number misrecognitions
+            r'\btree\b': "three",  # "tree day" → "three day" → "3 day"
+            r'\bfor\b(?!\s+(?:the|a|an|in|on|at|to))': "four",  # "for days" → "four days" (but not "for the trip")
+            r'\bto\b(?!\s+(?:the|a|an|in|on|at|day|mumbai))': "two",  # "to days" → "two days" (but not "to Mumbai")
+            # Day misrecognitions
+            r'\bplay\s+one\b': "swap day 1",
+            r'\bplay\s+day\s+(\d+)\b': r"swap day \1",
+            r'\bplace\s+one\b': "swap day 1",
+            r'\bplace\s+day\s+(\d+)\b': r"swap day \1",
+            # Voice transcription artifacts
+            r'\bum\b': "",
+            r'\buh\b': "",
+            r'\blike\b(?!\s+(?:food|culture|shopping))': "",  # Remove filler "like" but keep "like food"
+            r'\byou know\b': "",
+            r'\bwell\s+': "",  # Remove leading "well"
+            r'\bso\s+': "",  # Remove leading "so"
+            r'\bactually\s+': "",  # Remove "actually"
+            r'\bbasically\s+': "",  # Remove "basically"
+        }
+        
+        # Apply STT corrections
+        for pattern, replacement in stt_corrections.items():
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+        
+        # Fix "day to" → "day 2" (common voice error)
+        text = re.sub(r'\bday\s+to\b', 'day 2', text, flags=re.IGNORECASE)
+        
+        # Fix spacing issues after replacements
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Remove any remaining double spaces
+        while '  ' in text:
+            text = text.replace('  ', ' ')
         
         return text.strip()
     
@@ -80,22 +156,48 @@ class IntentClassifier:
         # Use Grok API for classification
         prompt = f"""Classify this user input into one of these intents: {', '.join(self.INTENTS)}
 
-User input: "{normalized_input}"
+User input (may contain voice transcription errors): "{normalized_input}"
 
-IMPORTANT: Voice commands for editing include:
-- "add a day", "add another day", "add extra day" → EDIT_ITINERARY with ADD_ACTIVITY
-- "swap day X with day Y", "swap day X and day Y" → EDIT_ITINERARY with SWAP_ACTIVITY
-- "move day X morning to day Y", "swap day X evening to day Y" → EDIT_ITINERARY with SWAP_ACTIVITY
-- "change", "modify", "edit", "update" → EDIT_ITINERARY
-- "remove", "delete" → EDIT_ITINERARY with REMOVE_ACTIVITY
+CRITICAL: This input may come from voice recognition and could have transcription errors. Be flexible:
+- Number words: "one"=1, "two"=2, "three"=3, etc.
+- Common STT errors: "tree" may mean "three" or "3", "Jai poor" = "Jaipur", "play one" = "swap day 1"
+- Short responses like "yes", "no", "3", "Jaipur", "road" are often answers to clarifying questions
+
+INTENT PATTERNS:
+
+PLAN_TRIP:
+- "plan", "trip", "visit", "itinerary", "create", "make a plan"
+- Includes city names, durations, interests
+- Examples: "Plan a 3-day trip to Jaipur", "Visit Mumbai", "I want to go to Delhi"
+
+EDIT_ITINERARY:
+- "change", "modify", "edit", "update", "swap", "move", "add", "remove", "delete", "replace"
+- Voice variations: "play one" = "swap day 1", "day to" = "day 2"
+- Editing patterns:
+  * "add a day", "add another day", "add extra day" → ADD_ACTIVITY
+  * "swap day X with day Y", "swap day X and day Y", "play day X with day Y" → SWAP_DAYS
+  * "move day X morning to day Y", "swap day X evening to day Y" → MOVE_TIME_BLOCK
+  * "make day X more relaxed/faster" → CHANGE_PACE
+  * "remove activity from day X" → REMOVE_ACTIVITY
+  * "reduce travel time" → REDUCE_TRAVEL
+
+EXPLAIN:
+- "why", "explain", "reason", "how come", "what", "tell me about"
+- Questions about POIs, timing, decisions
+- Examples: "Why did you pick Hawa Mahal?", "Explain the itinerary", "What if it rains?"
+
+CLARIFY:
+- Short responses: "yes", "no", "sure", "okay", "ok", "correct", "right"
+- Single word answers: city names, numbers, interests, pace preferences
+- Responses to clarifying questions
 
 Return a JSON object with this exact structure:
 {{
     "intent": "PLAN_TRIP|EDIT_ITINERARY|EXPLAIN|CLARIFY|OTHER",
     "confidence": 0.0-1.0,
     "entities": {{
-        "city": "city name or null",
-        "duration": number or null,
+        "city": "city name (corrected if mispronounced) or null",
+        "duration": number (convert words like 'three' to 3) or null,
         "target_day": number or null,
         "source_day": number or null,
         "edit_type": "CHANGE_PACE|SWAP_ACTIVITY|SWAP_DAYS|MOVE_TIME_BLOCK|ADD_ACTIVITY|REMOVE_ACTIVITY|REDUCE_TRAVEL or null",
@@ -178,19 +280,58 @@ Only return the JSON, no other text."""
             "question_type": None
         }
         
-        # Extract duration (e.g., "3 days", "2-day")
+        # Extract duration (e.g., "3 days", "2-day", "three days", "tree days")
+        # First try numeric patterns
         duration_match = re.search(r'(\d+)[\s-]?day', user_input.lower())
         if duration_match:
             entities["duration"] = int(duration_match.group(1))
+        else:
+            # Try word numbers (already converted to digits by normalize_voice_input, but handle edge cases)
+            word_to_num = {
+                "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10
+            }
+            for word, num in word_to_num.items():
+                if re.search(rf'\b{word}\s+days?\b', user_input.lower()):
+                    entities["duration"] = num
+                    break
         
-        # Extract day number (e.g., "day 2", "day two")
+        # Extract day number (e.g., "day 2", "day two", "day to" = day 2)
+        # First try numeric patterns
         day_match = re.search(r'day\s+(\d+)', user_input.lower())
         if day_match:
             entities["target_day"] = int(day_match.group(1))
+        else:
+            # Try word numbers and voice errors
+            word_to_num = {
+                "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+                "to": 2  # "day to" = "day 2" (common voice error)
+            }
+            for word, num in word_to_num.items():
+                if re.search(rf'day\s+{word}\b', user_input.lower()):
+                    entities["target_day"] = num
+                    break
+        
+        # Extract source_day for swaps (e.g., "swap day 1 with day 2")
+        source_day_match = re.search(r'(?:swap|switch|move|play|place).*?day\s+(\d+)', user_input.lower())
+        if source_day_match:
+            entities["source_day"] = int(source_day_match.group(1))
+        
+        # Also check for word numbers in source day context
+        if not entities.get("source_day"):
+            for word, num in word_to_num.items():
+                if re.search(rf'(?:swap|switch|move|play|place).*?day\s+{word}\b', user_input.lower()):
+                    entities["source_day"] = num
+                    break
         
         # Extract edit type with better voice command recognition
         user_lower = user_input.lower()
-        if "relaxed" in user_lower or "slower" in user_lower or "faster" in user_lower:
+        
+        # Handle voice transcription variations: "play" = "swap", "place" = "swap"
+        if "play" in user_lower or "place" in user_lower:
+            user_lower = user_lower.replace("play", "swap").replace("place", "swap")
+        
+        if "relaxed" in user_lower or "slower" in user_lower or "faster" in user_lower or "more relaxed" in user_lower or "packed" in user_lower:
             entities["edit_type"] = "CHANGE_PACE"
         elif "swap" in user_lower or "switch" in user_lower or "modify" in user_lower or "change" in user_lower or "update" in user_lower:
             # Check if it's a day swap or activity swap
@@ -203,12 +344,14 @@ Only return the JSON, no other text."""
                 entities["edit_type"] = "SWAP_ACTIVITY"
         elif "move" in user_lower and "day" in user_lower:
             entities["edit_type"] = "MOVE_TIME_BLOCK"
-        elif "add" in user_lower and ("day" in user_lower or "extra day" in user_lower):
+        elif "add" in user_lower and ("day" in user_lower or "extra day" in user_lower or "another day" in user_lower):
             entities["edit_type"] = "ADD_ACTIVITY"  # Adding a day is handled as ADD_ACTIVITY
         elif "add" in user_lower:
             entities["edit_type"] = "ADD_ACTIVITY"
         elif "remove" in user_lower or "delete" in user_lower:
             entities["edit_type"] = "REMOVE_ACTIVITY"
+        elif "reduce" in user_lower and ("travel" in user_lower or "time" in user_lower):
+            entities["edit_type"] = "REDUCE_TRAVEL"
         
         return entities
     

@@ -103,17 +103,22 @@ def _map_travel_mode_to_calculation_mode(travel_mode: Optional[str]) -> str:
 
 
 def _format_pois_for_prompt(pois: List[Dict]) -> str:
-    """Format POIs for LLM prompt with all relevant details."""
+    """Format POIs for LLM prompt with all relevant details including proximity information."""
     formatted = []
     for i, poi in enumerate(pois, 1):
         line = f"{i}. {poi['name']} ({poi['category']}) - "
         line += f"Duration: {poi['duration_minutes']} min, "
-        line += f"Location: ({poi['location']['lat']}, {poi['location']['lon']})"
+        line += f"Location: lat={poi['location']['lat']}, lon={poi['location']['lon']}"
         if poi.get('opening_hours'):
             line += f", Opening hours: {poi['opening_hours']}"
         if poi.get('source_id'):
             line += f", Source ID: {poi['source_id']}"
+        if poi.get('description'):
+            line += f", Description: {poi['description'][:100]}"
         formatted.append(line)
+    
+    # Add proximity hint
+    formatted.append("\nNOTE: Check lat/lon coordinates to group nearby POIs together. POIs with similar coordinates (within ~2km) should be scheduled on the same day and time block to minimize travel time.")
     return "\n".join(formatted)
 
 
@@ -425,53 +430,140 @@ def build_itinerary_mcp(
             for tw in daily_time_windows
         ])
         
-        system_prompt = """You are an expert travel itinerary planner. Create realistic, feasible day-wise itineraries 
+        # Check if food is a primary interest
+        has_food_interest = False
+        if preferences:
+            # Check if "food" key exists and is True, or if any key contains "food" (case-insensitive)
+            has_food_interest = (
+                preferences.get("food") is True or
+                any("food" in str(k).lower() for k in preferences.keys() if preferences.get(k) is True)
+            )
+        
+        # Build system prompt with food-specific instructions if needed
+        food_priority_instructions = ""
+        if has_food_interest:
+            food_priority_instructions = """
+FOOD INTEREST PRIORITY (CRITICAL):
+- When "food" is in user preferences, RESTAURANTS, CAFES, and FOOD PLACES are the PRIMARY focus
+- Include multiple food experiences throughout each day (breakfast, lunch, dinner, snacks)
+- Prioritize restaurants/cafes over other attractions when food is the main interest
+- For food-focused itineraries: aim for 2-3 food experiences per day (restaurants, cafes, food markets, street food)
+- Include restaurants/cafes in morning (breakfast), afternoon (lunch), and evening (dinner) time slots
+- If food is the ONLY or PRIMARY interest, make restaurants/cafes the majority of activities
+- Group food places with nearby attractions when possible, but prioritize food experiences
+"""
+        
+        system_prompt = f"""You are an expert travel itinerary planner. Create realistic, feasible day-wise itineraries 
 that group nearby attractions, respect time constraints, and match the user's pace preference.
+{food_priority_instructions}
 
 Return a JSON object with this exact structure:
-{
-    "day_1": {
-        "morning": {
+{{
+    "day_1": {{
+        "morning": {{
             "activities": [
-                {
+                {{
                     "activity": "Activity name (must match POI name exactly)",
                     "time": "09:00 - 10:30",
                     "duration_minutes": 90,
-                    "location": {"lat": 26.9240, "lon": 75.8266},
+                    "location": {{"lat": 26.9240, "lon": 75.8266}},
                     "category": "historical",
                     "source_id": "way:123456",
                     "description": "Brief description",
                     "opening_hours": "Mo-Su 09:00-18:00"
-                }
+                }}
             ]
-        },
-        "afternoon": {"activities": [...]},
-        "evening": {"activities": [...]}
-    },
-    "day_2": {...},
+        }},
+        "afternoon": {{"activities": [...]}},
+        "evening": {{"activities": [...]}}
+    }},
+    "day_2": {{...}},
     ...
-}
+}}
 
-CRITICAL RULES:
-- Use EXACT POI names, locations (lat/lon), source_ids, and duration_minutes from the provided list
-- ALWAYS include opening_hours if provided in POI data
-- duration_minutes MUST be greater than 0 (use POI duration_minutes value)
-- location MUST include both lat and lon (use POI location values)
-- Group nearby POIs together (check coordinates)
-- Respect time windows (start/end times)
-- Match pace: relaxed=2-3 activities/day, moderate=3-4, fast=4-5
-- Distribute activities evenly across days
-- Only return valid JSON, no other text"""
+CRITICAL RULES - FOLLOW EXACTLY:
+
+1. POI DATA ACCURACY (MANDATORY):
+   - Use EXACT POI names from the provided list (case-sensitive matching)
+   - Use EXACT lat/lon coordinates from the provided POI list
+   - Use EXACT source_id from the provided POI list
+   - Use EXACT duration_minutes from the provided POI list (must be > 0)
+   - ALWAYS include opening_hours if provided in POI data
+
+2. PROXIMITY GROUPING (CRITICAL):
+   - Check lat/lon coordinates for all POIs
+   - Group POIs that are close together (within ~2km or similar coordinates) on the SAME day and time block
+   - Calculate rough distance: |lat1-lat2| + |lon1-lon2| - smaller values = closer together
+   - Prioritize grouping nearby POIs to minimize travel time between activities
+   - If POIs have very similar coordinates (difference < 0.01), they MUST be grouped together
+
+3. TIME WINDOW CONSTRAINTS (MANDATORY):
+   - Respect the exact time windows: {time_windows_text}
+   - Start times must be >= window start time (e.g., 09:00)
+   - End times must be <= window end time (e.g., 22:00)
+   - Total daily activity time (including durations and travel) must fit within the window
+   - Do NOT schedule activities outside the time windows
+
+4. PACE MATCHING (STRICT):
+   - Relaxed pace: 2-3 activities per day (never more than 3)
+   - Moderate pace: 3-4 activities per day (typically 3-4)
+   - Fast pace: 4-5 activities per day (can be 4 or 5)
+   - Count activities across all time blocks (morning + afternoon + evening)
+
+5. ACTIVITY DISTRIBUTION:
+   - Distribute activities evenly across all days
+   - Each day should have a similar number of activities (within 1 activity difference)
+   - Do NOT pack one day heavily while leaving others sparse
+
+6. TIME BLOCK ORGANIZATION:
+   - Morning: Start from time window start (typically 09:00), activities until ~12:00-13:00
+   - Afternoon: Activities from ~13:00 to ~17:00-18:00 (include lunch if food interest)
+   - Evening: Activities from ~17:00-18:00 until time window end (typically 22:00)
+   - Ensure smooth transitions between time blocks
+
+7. TRAVEL TIME CONSIDERATION:
+   - When grouping activities, consider that travel time will be calculated between them
+   - Group nearby POIs to minimize travel time
+   - Leave buffer time between activities for travel (travel time added automatically)
+
+8. OPENING HOURS:
+   - Check opening_hours if provided
+   - Schedule activities only when the POI is open
+   - If no opening_hours provided, use reasonable defaults (museums: 09:00-17:00, restaurants: 11:00-22:00)
+
+Only return valid JSON, no other text."""
         
+        # Build user prompt with food emphasis
+        preferences_text = json.dumps(preferences or {}, indent=2)
+        food_emphasis = ""
+        if has_food_interest:
+            food_emphasis = "\n\nIMPORTANT: The user has FOOD as a primary interest. Prioritize restaurants, cafes, and food places. Include multiple food experiences throughout each day (breakfast, lunch, dinner, snacks). Make food experiences the focus of this itinerary."
+        
+        # Enhanced user prompt with specific instructions
         user_prompt = f"""Create a {num_days}-day itinerary with pace: {pace}
 
-Available POIs:
+Available POIs ({len(pois)} total):
 {pois_text}
 
-Time Windows:
+Time Windows (STRICT - must respect these):
 {time_windows_text}
 
-Preferences: {preferences or {}}
+User Preferences:
+{preferences_text}
+{food_emphasis}
+
+IMPORTANT INSTRUCTIONS:
+1. PROXIMITY GROUPING: Check lat/lon coordinates. POIs with similar coordinates (within ~2km) should be grouped together on the same day/time block to minimize travel time.
+
+2. PACE REQUIREMENT: {pace.upper()} pace means:
+   - {"2-3 activities per day (maximum 3)" if pace == "relaxed" else "3-4 activities per day (typically 3-4)" if pace == "moderate" else "4-5 activities per day (can be 4 or 5)"}
+   - Count activities across all time blocks (morning + afternoon + evening)
+
+3. TIME WINDOWS: All activities must fit within the specified time windows. Do not schedule outside these times.
+
+4. DISTRIBUTION: Distribute activities evenly across all {num_days} days. Each day should have approximately the same number of activities.
+
+5. DATA ACCURACY: Use EXACT POI names, coordinates, durations, and source_ids from the provided list. Do not modify or invent any data.
 
 Return the JSON itinerary structure as specified."""
         

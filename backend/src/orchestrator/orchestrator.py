@@ -85,13 +85,23 @@ class TravelOrchestrator:
         try:
             logger.info(f"Planning trip for session {session_id}")
             
+            # Normalize voice input (handles STT errors, city corrections, number words, etc.)
+            original_input = user_input
+            normalized_input = self.intent_classifier.normalize_voice_input(user_input)
+            
+            # Log if corrections were made
+            if original_input != normalized_input:
+                logger.info(f"Voice input normalized: '{original_input}' → '{normalized_input}'")
+                # Use normalized input for processing
+                user_input = normalized_input
+            
             # Get or create session
             session = self.conversation_manager.get_session(session_id)
             if not session:
                 session_id = self.conversation_manager.create_session()
                 session = self.conversation_manager.get_session(session_id)
             
-            # Add user message to history
+            # Add user message to history (use normalized input if it was corrected)
             self.conversation_manager.add_message(session_id, "user", user_input)
             
             # Extract preferences from user input with conversation context
@@ -295,11 +305,12 @@ class TravelOrchestrator:
                     "session_id": session_id
                 }
             
-            # 2. Retrieve RAG context (Wikivoyage tips)
+            # 2. Retrieve RAG context (Wikivoyage tips) - increase to ensure we get enough sources
+            # Get more RAG results to ensure we can reach 10 total sources
             city = preferences["city"]
-            rag_context = retrieve_city_tips(city, query="travel tips and recommendations", top_k=5)
+            rag_context = retrieve_city_tips(city, query="travel tips and recommendations", top_k=10)
             
-            # 3. Get starting point location based on travel mode
+            # 3. Get starting point location - always use city center
             starting_point_location = None
             travel_mode = preferences.get("travel_mode")
             
@@ -308,51 +319,18 @@ class TravelOrchestrator:
                 travel_mode = "road"  # Default to road/car travel
                 logger.info("No travel_mode specified, defaulting to 'road' (driving/car)")
             
-            if travel_mode and pois:
+            if pois:
                 try:
-                    # Search for railway station if travel_mode is "road" or "railway"
-                    if travel_mode.lower() in ["road", "railway", "train"]:
-                        from src.data_sources.google_places import search_railway_station
-                        station_info = search_railway_station(
-                            city=city_name,
-                            country=country if country else None
-                        )
-                        
-                        if station_info:
-                            starting_point_location = {
-                                "lat": station_info["lat"],
-                                "lon": station_info["lon"]
-                            }
-                            logger.info(f"Using railway station as starting point: {station_info.get('name', 'Railway Station')} at {starting_point_location}")
-                        else:
-                            # Fallback to city center if station not found
-                            from src.data_sources.geocoding import get_city_coordinates
-                            city_coords = get_city_coordinates(city_name, country=country if country else None)
-                            starting_point_location = {
-                                "lat": city_coords["lat"],
-                                "lon": city_coords["lon"]
-                            }
-                            logger.warning(f"Railway station not found, using city center as starting point: {starting_point_location}")
-                    elif travel_mode.lower() in ["airplane", "air", "flight"]:
-                        # For airplane, use airport (could be enhanced to search for airport)
-                        from src.data_sources.geocoding import get_city_coordinates
-                        city_coords = get_city_coordinates(city_name, country=country if country else None)
-                        starting_point_location = {
-                            "lat": city_coords["lat"],
-                            "lon": city_coords["lon"]
-                        }
-                        logger.info(f"Using city center as starting point (airport search not implemented): {starting_point_location}")
-                    else:
-                        # Default to city center
-                        from src.data_sources.geocoding import get_city_coordinates
-                        city_coords = get_city_coordinates(city_name, country=country if country else None)
-                        starting_point_location = {
-                            "lat": city_coords["lat"],
-                            "lon": city_coords["lon"]
-                        }
-                        logger.info(f"Using city center as starting point: {starting_point_location}")
+                    # Always use city center as starting point
+                    from src.data_sources.geocoding import get_city_coordinates
+                    city_coords = get_city_coordinates(city_name, country=country if country else None)
+                    starting_point_location = {
+                        "lat": city_coords["lat"],
+                        "lon": city_coords["lon"]
+                    }
+                    logger.info(f"Using city center as starting point: {city_name} at {starting_point_location}")
                 except Exception as e:
-                    logger.warning(f"Could not get starting point coordinates: {e}, using first POI location")
+                    logger.warning(f"Could not get city center coordinates: {e}, using first POI location")
                     # Fallback: use first POI location as starting point
                     if pois:
                         starting_point_location = pois[0].get("location")
@@ -385,17 +363,9 @@ class TravelOrchestrator:
                     "session_id": session_id
                 }
             
-            # 5. Determine starting point name based on travel mode
-            starting_point = None
-            travel_mode = preferences.get("travel_mode")
-            if travel_mode:
-                if travel_mode.lower() == "road":
-                    starting_point = f"{city_name} Central Railway Station"
-                elif travel_mode.lower() == "airplane":
-                    starting_point = f"{city_name} Airport"
-                elif travel_mode.lower() == "railway":
-                    starting_point = f"{city_name} Central Railway Station"
-                logger.info(f"Starting point set to: {starting_point} (travel_mode: {travel_mode})")
+            # 5. Determine starting point name - always use city center
+            starting_point = f"{city_name} City Center"
+            logger.info(f"Starting point set to: {starting_point}")
             
             # 6. Ensure travel_dates array has dates for all days
             travel_dates = preferences.get("travel_dates")
@@ -461,10 +431,13 @@ class TravelOrchestrator:
                     # Don't fail itinerary creation if weather fetch fails
             
             # 8. Prepare sources - Build from activities in itinerary (which have data_source preserved)
+            # Goal: Collect up to 10 sources total (prioritize activities, then POIs, then RAG)
             sources = []
             sources_seen = set()  # Track sources to avoid duplicates
+            MAX_TARGET_SOURCES = 10  # Target maximum of 10 sources
             
             # First, add sources from activities in the itinerary (these have data_source preserved)
+            # Collect ALL activity sources (no limit here - we want all activities to have sources)
             if itinerary:
                 for day_key in sorted([k for k in itinerary.keys() if k.startswith("day_")]):
                     day_data = itinerary.get(day_key, {})
@@ -509,20 +482,70 @@ class TravelOrchestrator:
                 osm_sources = len([s for s in sources if s.get('type') == 'openstreetmap'])
                 logger.info(f"✅ Added {len(sources)} sources from itinerary activities: {google_sources} Google Places, {osm_sources} OpenStreetMap")
             
-            # Fallback: If no sources from activities, add from POIs
-            if not sources and pois:
-                logger.warning("⚠️ No sources from activities, falling back to POI sources")
-                for poi in pois[:10]:  # Top 10 POIs
+            # Supplement with POIs if we don't have enough sources from activities
+            # Add POIs up to MAX_TARGET_SOURCES total (don't duplicate what we already have)
+            if pois and len(sources) < MAX_TARGET_SOURCES:
+                remaining_slots = MAX_TARGET_SOURCES - len(sources)
+                logger.info(f"Supplementing with POIs: {len(sources)} sources so far, need {remaining_slots} more to reach {MAX_TARGET_SOURCES}")
+                
+                added_pois = 0
+                for poi in pois:
+                    if added_pois >= remaining_slots:
+                        break
+                    
                     poi_name = poi.get("name")
                     source_id = poi.get("source_id")
-                    data_source = poi.get("data_source", "openstreetmap")  # Get actual data source
+                    data_source = poi.get("data_source", "openstreetmap")
+                    
+                    # Create unique key to avoid duplicates
+                    source_key = f"{data_source}:{source_id}" if source_id else f"{data_source}:{poi_name}"
+                    
+                    # Skip if we already have this source
+                    if source_key in sources_seen or not poi_name:
+                        continue
+                    
+                    sources_seen.add(source_key)
+                    source_url = None
+                    if source_id:
+                        # Format URL based on data source
+                        if data_source == "google_places":
+                            if source_id.startswith("place_id:"):
+                                place_id = source_id.replace("place_id:", "")
+                                source_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+                            else:
+                                source_url = f"https://www.google.com/maps/search/?api=1&query={poi_name}"
+                        else:
+                            # OpenStreetMap format
+                            if ":" in source_id:
+                                osm_type, osm_id = source_id.split(":", 1)
+                                source_url = f"https://www.openstreetmap.org/{osm_type}/{osm_id}"
+                            else:
+                                source_url = f"https://www.openstreetmap.org/node/{source_id}"
+                    
+                    sources.append({
+                        "type": data_source,
+                        "poi": poi_name,
+                        "source_id": source_id,
+                        "url": source_url
+                    })
+                    added_pois += 1
+                
+                if added_pois > 0:
+                    logger.info(f"Added {added_pois} POI sources to supplement activities (total now: {len(sources)})")
+            
+            # Fallback: If no sources from activities at all, add from POIs (up to 10)
+            if not sources and pois:
+                logger.warning("⚠️ No sources from activities, falling back to POI sources")
+                for poi in pois[:MAX_TARGET_SOURCES]:  # Top 10 POIs
+                    poi_name = poi.get("name")
+                    source_id = poi.get("source_id")
+                    data_source = poi.get("data_source", "openstreetmap")
                     
                     if poi_name:  # Only add if POI has a name
                         source_url = None
                         if source_id:
                             # Format URL based on data source
                             if data_source == "google_places":
-                                # Google Places uses place_id format
                                 if source_id.startswith("place_id:"):
                                     place_id = source_id.replace("place_id:", "")
                                     source_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
@@ -537,7 +560,7 @@ class TravelOrchestrator:
                                     source_url = f"https://www.openstreetmap.org/node/{source_id}"
                         
                         sources.append({
-                            "type": data_source,  # Use actual data source from POI
+                            "type": data_source,
                             "poi": poi_name,
                             "source_id": source_id,
                             "url": source_url
@@ -547,21 +570,37 @@ class TravelOrchestrator:
                 osm_sources = len([s for s in sources if s.get('type') == 'openstreetmap'])
                 logger.info(f"Added {google_sources} Google Places sources and {osm_sources} OpenStreetMap sources from POIs")
             
-            # Add RAG/Wikivoyage sources
+            # Add RAG/Wikivoyage sources (add all unique ones, but prioritize reaching 10 total)
+            # Limit Wikivoyage to fill remaining slots up to MAX_TARGET_SOURCES
             if rag_context:
+                wikivoyage_added = 0
+                remaining_for_wikivoyage = max(0, MAX_TARGET_SOURCES - len(sources))
+                
                 for rag_item in rag_context:
+                    # If we already have 10+ sources, stop adding Wikivoyage
+                    if len(sources) >= MAX_TARGET_SOURCES:
+                        break
+                    
                     topic = rag_item.get("topic")
                     url = rag_item.get("url")
-                    if topic or url:  # Only add if has topic or URL
+                    
+                    # Create unique key to avoid duplicate Wikivoyage sources
+                    wikivoyage_key = f"wikivoyage:{url}" if url else f"wikivoyage:{topic}"
+                    
+                    if (topic or url) and wikivoyage_key not in sources_seen:
+                        sources_seen.add(wikivoyage_key)
                         sources.append({
                             "type": "wikivoyage",
                             "topic": topic,
                             "url": url,
                             "snippet": rag_item.get("snippet", "")[:200] if rag_item.get("snippet") else None
                         })
-                logger.info(f"Added {len([s for s in sources if s.get('type') == 'wikivoyage'])} Wikivoyage sources")
+                        wikivoyage_added += 1
+                
+                if wikivoyage_added > 0:
+                    logger.info(f"Added {wikivoyage_added} Wikivoyage sources (total now: {len(sources)})")
             
-            logger.info(f"Total sources prepared: {len(sources)}")
+            logger.info(f"Total sources prepared: {len(sources)} (target: {MAX_TARGET_SOURCES})")
             
             # 9. Run evaluations
             constraints = {
@@ -640,6 +679,16 @@ class TravelOrchestrator:
         try:
             logger.info(f"Editing itinerary for session {session_id}")
             
+            # Normalize voice input (handles STT errors, voice patterns like "play one" = "swap day 1")
+            original_input = user_input
+            normalized_input = self.intent_classifier.normalize_voice_input(user_input)
+            
+            # Log if corrections were made
+            if original_input != normalized_input:
+                logger.info(f"Voice input normalized for edit: '{original_input}' → '{normalized_input}'")
+                # Use normalized input for processing
+                user_input = normalized_input
+            
             session = self.conversation_manager.get_session(session_id)
             if not session or not session.itinerary:
                 return {
@@ -651,7 +700,7 @@ class TravelOrchestrator:
             # Parse edit command
             edit_command = self.edit_handler.parse_edit_command(user_input)
             
-            # Add user message
+            # Add user message (use normalized input if corrected)
             self.conversation_manager.add_message(session_id, "user", user_input)
             
             # Store old itinerary for comparison
@@ -781,6 +830,16 @@ class TravelOrchestrator:
         try:
             logger.info(f"Explaining decision for session {session_id}")
             
+            # Normalize voice input (handles STT errors and voice patterns)
+            original_question = user_input
+            normalized_question = self.intent_classifier.normalize_voice_input(user_input)
+            
+            # Log if corrections were made
+            if original_question != normalized_question:
+                logger.info(f"Voice input normalized for explain: '{original_question}' → '{normalized_question}'")
+                # Use normalized question for processing
+                user_input = normalized_question
+            
             session = self.conversation_manager.get_session(session_id)
             if not session:
                 return {
@@ -793,7 +852,7 @@ class TravelOrchestrator:
             classification = self.intent_classifier.classify_intent(user_input)
             entities = classification.get("entities", {})
             
-            # Add user message
+            # Add user message (use normalized question if corrected)
             self.conversation_manager.add_message(session_id, "user", user_input)
             
             # Determine question type
