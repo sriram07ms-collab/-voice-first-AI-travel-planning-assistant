@@ -233,11 +233,13 @@ function TravelAssistantContent() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)]">
-          {/* Left Panel - Single Card Mode Chat */}
+        {/* Single unified card containing conversation + itinerary/sources */}
+        <div className="card h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
+          {/* Left Panel - Conversation */}
           <div className="lg:col-span-2 flex flex-col min-h-0">
-            {/* Single Card Chat - No Scrollable Area */}
-            <div className="card flex-1 flex flex-col min-h-0 overflow-hidden">
+            {/* Conversation Area */}
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-[#CCD0D5] flex-shrink-0">
                 <div className="flex items-center gap-3">
@@ -381,10 +383,10 @@ function TravelAssistantContent() {
             </div>
           </div>
 
-          {/* Right Panel - Itinerary & Sources */}
+          {/* Right Panel - Itinerary & Sources (inside same outer card) */}
           <div className="lg:col-span-1 flex flex-col gap-4 min-h-0">
             {/* Tabs */}
-            <div className="card p-1 flex gap-1">
+            <div className="p-1 flex gap-1 bg-[#F0F2F5] rounded-lg">
               <button
                 onClick={() => setActiveTab('chat')}
                 className={`flex-1 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
@@ -422,7 +424,7 @@ function TravelAssistantContent() {
             </div>
 
             {/* Content Area */}
-            <div className="card flex-1 overflow-y-auto scrollbar-thin">
+            <div className="flex-1 overflow-y-auto scrollbar-thin bg-white rounded-lg border border-[#CCD0D5]">
               <div className="p-4">
                 {activeTab === 'itinerary' && itinerary && (
                   <div className="space-y-4">
