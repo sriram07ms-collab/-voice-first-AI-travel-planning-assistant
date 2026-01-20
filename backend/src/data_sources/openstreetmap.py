@@ -64,8 +64,9 @@ def _category_to_tags(interests: List[str]) -> Dict[str, List[str]]:
             "historic": ["monument", "memorial", "castle", "palace", "temple"]
         },
         "shopping": {
-            "shop": ["*"],  # All shops
-            "tourism": ["attraction"]  # Markets
+            "shop": ["mall", "supermarket", "marketplace", "department_store", "clothes", "jewelry", "electronics", "bookstore"],
+            "tourism": ["attraction"],  # Markets
+            "amenity": ["marketplace"]  # Marketplaces
         },
         "nightlife": {
             "amenity": ["bar", "pub", "nightclub", "casino"]
@@ -154,7 +155,8 @@ def _build_overpass_query(lat: float, lon: float, tags: Dict[str, List[str]], ra
         # Use regex pattern for multiple values (much more efficient than separate queries)
         if len(valid_values) > 1:
             # Build regex pattern: "^(value1|value2|value3)$"
-            regex_pattern = "|".join(valid_values[:4])  # Limit to 4 values max
+            # Limit to 8 values max to prevent query from being too complex
+            regex_pattern = "|".join(valid_values[:8])
             query_lines.append(f'  nwr(around:{radius},{lat:.6f},{lon:.6f})["{tag_type}"~"^({regex_pattern})$"];')
         else:
             # Single value - use exact match (most efficient)
@@ -205,7 +207,11 @@ def _parse_overpass_response(data: Dict) -> List[Dict]:
             continue
         
         tags = element.get("tags", {})
-        name = tags.get("name") or tags.get("name:en") or tags.get("alt_name") or tags.get("name:hi")
+        # Try multiple name fields (including local language names)
+        name = (tags.get("name") or tags.get("name:en") or tags.get("alt_name") or 
+                tags.get("name:hi") or tags.get("name:ta") or tags.get("name:kn") or 
+                tags.get("name:te") or tags.get("name:ml") or tags.get("official_name") or
+                tags.get("loc_name") or tags.get("short_name"))
         
         if not name:
             skipped_no_name += 1
@@ -409,6 +415,73 @@ out center;
     return []
 
 
+def _try_very_broad_query(lat: float, lon: float, radius: int) -> List[Dict]:
+    """
+    Very broad fallback query - searches for ANY named POI with common tags.
+    This is the last resort when all other queries fail.
+    
+    Args:
+        lat: Latitude
+        lon: Longitude
+        radius: Search radius in meters
+    
+    Returns:
+        List of POI dictionaries
+    """
+    logger.info(f"Attempting very broad query at ({lat}, {lon}) with radius {radius}m")
+    
+    import math
+    # Use smaller radius for very broad query to avoid timeout
+    safe_radius = min(radius, 3000)  # Max 3km for very broad query
+    lat_delta = safe_radius / 111000.0
+    lon_delta = safe_radius / (111000.0 * abs(math.cos(math.radians(lat))))
+    south = lat - lat_delta
+    north = lat + lat_delta
+    west = lon - lon_delta
+    east = lon + lon_delta
+    
+    # Very broad query - any named POI with common tags
+    very_broad_query = f"""
+[out:json][timeout:20];
+(
+  node["name"]({south},{west},{north},{east})["tourism"];
+  way["name"]({south},{west},{north},{east})["tourism"];
+  relation["name"]({south},{west},{north},{east})["tourism"];
+  node["name"]({south},{west},{north},{east})["amenity"];
+  way["name"]({south},{west},{north},{east})["amenity"];
+  relation["name"]({south},{west},{north},{east})["amenity"];
+  node["name"]({south},{west},{north},{east})["shop"];
+  way["name"]({south},{west},{north},{east})["shop"];
+  relation["name"]({south},{west},{north},{east})["shop"];
+  node["name"]({south},{west},{north},{east})["historic"];
+  way["name"]({south},{west},{north},{east})["historic"];
+  relation["name"]({south},{west},{north},{east})["historic"];
+);
+out center 50;
+"""
+    
+    # Try with primary endpoint
+    try:
+        _rate_limit()
+        response = requests.post(
+            OVERPASS_API_ENDPOINTS[0],
+            data=very_broad_query,
+            headers={"Content-Type": "text/plain"},
+            timeout=25
+        )
+        response.raise_for_status()
+        
+        data = response.json()
+        if "elements" in data and len(data["elements"]) > 0:
+            pois_dict = _parse_overpass_response(data)
+            logger.info(f"Very broad query returned {len(pois_dict)} POIs")
+            return pois_dict
+    except Exception as e:
+        logger.error(f"Very broad query failed: {e}")
+    
+    return []
+
+
 def search_pois_overpass(
     city: str,
     interests: List[str],
@@ -449,8 +522,13 @@ def search_pois_overpass(
         logger.info(f"Mapped interests {interests} to OSM tags: {tags}")
         
         # Use conservative radius to prevent timeouts - start with 5km
-        # The retry logic will reduce this if needed, or we can increase if we get too few results
-        radius = 5000  # 5km radius - optimal for preventing timeouts while getting good coverage
+        # For Chennai and other major Indian cities, use slightly larger radius
+        city_lower = city.lower()
+        if city_lower in ["chennai", "mumbai", "delhi", "bangalore", "hyderabad", "kolkata"]:
+            radius = 7000  # 7km for major cities - more coverage
+            logger.info(f"Using larger radius (7km) for major city: {city}")
+        else:
+            radius = 5000  # 5km radius - optimal for preventing timeouts while getting good coverage
         logger.info(f"Using search radius of {radius/1000}km for POI search at ({lat}, {lon})")
         
         # Build Overpass query with result limit
@@ -522,8 +600,16 @@ def search_pois_overpass(
                 
                 # If no POIs found, try a broader fallback query
                 if not pois_dict:
-                    logger.warning(f"No POIs found with specific tags. Elements had tags but no names? Trying fallback...")
-                    pois_dict = _try_fallback_query(lat, lon, radius, interests)
+                    logger.warning(f"No POIs found with specific tags. Trying fallback query...")
+                    try:
+                        pois_dict = _try_fallback_query(lat, lon, radius, interests)
+                        if not pois_dict:
+                            # Last resort: try even broader query with just tourism/amenity
+                            logger.warning(f"Fallback query also returned no results. Trying very broad query...")
+                            pois_dict = _try_very_broad_query(lat, lon, radius)
+                    except Exception as fallback_error:
+                        logger.error(f"Fallback query failed: {fallback_error}")
+                        pois_dict = []
                 
                 # Success - break retry loop
                 break
