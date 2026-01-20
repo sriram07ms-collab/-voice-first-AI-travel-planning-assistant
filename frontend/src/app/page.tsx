@@ -233,31 +233,54 @@ function TravelAssistantContent() {
       </header>
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        {/* Single unified card containing conversation + itinerary/sources */}
+        {/* Single chat window - ChatGPT/Gemini style */}
         <div className="card h-[calc(100vh-180px)] lg:h-[calc(100vh-140px)] flex flex-col overflow-hidden">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
-            {/* Left Panel - Conversation */}
-            <div className="lg:col-span-2 flex flex-col min-h-0">
-            {/* Conversation Area */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              {/* Header */}
-              <div className="flex items-center justify-between p-4 border-b border-[#CCD0D5] flex-shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <h2 className="text-lg font-semibold text-[#050505]">Conversation</h2>
-                </div>
-                {sources && sources.length > 0 && (
-                  <span className="text-xs font-medium text-[#65676B] bg-[#E4E6EB] px-3 py-1 rounded-full border border-[#CCD0D5]">
-                    {sources.length} source{sources.length > 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              
-              {/* Messages Area - Single Card Flow (No Scroll) */}
-              <div 
-                ref={messagesContainerRef}
-                className="flex-1 p-4 space-y-4 min-h-0 overflow-y-auto scrollbar-thin"
+          {/* Tabs at top */}
+          <div className="flex items-center gap-1 p-2 border-b border-[#CCD0D5] flex-shrink-0 bg-[#F0F2F5]">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
+                activeTab === 'chat'
+                  ? 'bg-[#1877F2] text-white shadow-md'
+                  : 'text-[#65676B] hover:text-[#050505] hover:bg-white'
+              }`}
+            >
+              Chat
+            </button>
+            {itinerary && (
+              <button
+                onClick={() => setActiveTab('itinerary')}
+                className={`px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
+                  activeTab === 'itinerary'
+                    ? 'bg-[#1877F2] text-white shadow-md'
+                    : 'text-[#65676B] hover:text-[#050505] hover:bg-white'
+                }`}
               >
+                Itinerary
+              </button>
+            )}
+            {itinerary && (
+              <button
+                onClick={() => setActiveTab('sources')}
+                className={`px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
+                  activeTab === 'sources'
+                    ? 'bg-[#1877F2] text-white shadow-md'
+                    : 'text-[#65676B] hover:text-[#050505] hover:bg-white'
+                }`}
+              >
+                Sources {sources && sources.length > 0 && `(${sources.length})`}
+              </button>
+            )}
+          </div>
+          
+          {/* Content Area - switches based on active tab */}
+          <div 
+            ref={messagesContainerRef}
+            className="flex-1 p-4 space-y-4 min-h-0 overflow-y-auto scrollbar-thin"
+          >
+            {/* Chat Tab Content */}
+            {activeTab === 'chat' && (
+              <>
                 {messages.length === 0 && (
                   <div className="flex flex-col items-center justify-center h-full text-center py-12 animate-fade-in">
                     <div className="w-16 h-16 bg-[#1877F2] rounded-2xl flex items-center justify-center mb-4 shadow-lg">
@@ -336,171 +359,117 @@ function TravelAssistantContent() {
                 
                 {/* Invisible element for auto-scroll */}
                 <div ref={messagesEndRef} />
-              </div>
-              
-              {/* Sticky Input Section at Bottom */}
-              <div className="border-t border-[#CCD0D5] bg-[#F0F2F5] p-4 flex-shrink-0">
-                {/* Error Display */}
-                {error && (
-                  <div className="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg animate-fade-in">
-                    <p className="text-sm text-red-800 font-medium flex items-center gap-2">
-                      <span>⚠️</span>
-                      {error}
-                    </p>
+              </>
+            )}
+
+            {/* Itinerary Tab Content */}
+            {activeTab === 'itinerary' && itinerary && (
+              <div className="space-y-4">
+                <ItineraryView 
+                  itinerary={itinerary}
+                  onExplainActivity={handleExplainActivity}
+                  onGeneratePDF={handleGeneratePDF}
+                  isGeneratingPDF={isGeneratingPDF}
+                />
+                {currentExplanation && (
+                  <div className="mt-4 animate-fade-in">
+                    <ExplanationPanel explanation={currentExplanation} sources={explanationSources} />
                   </div>
                 )}
-                
-                {/* Text Input */}
-                <div className="mb-3">
-                  <TextInput 
-                    onSendMessage={handleTextMessage} 
-                    disabled={isProcessing}
-                    placeholder="Type your message or ask a question..."
-                  />
-                </div>
-                
-                {/* Voice Input Option */}
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center justify-center gap-4 w-full">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
-                    <span className="text-xs font-medium text-[#65676B] uppercase tracking-wider">or</span>
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
+                {pdfUrl && (
+                  <div className="mt-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg animate-fade-in">
+                    <p className="text-sm text-green-800 font-medium mb-2">✅ PDF generated successfully!</p>
+                    <a
+                      href={pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-green-600 hover:underline font-medium"
+                    >
+                      Open PDF →
+                    </a>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <VoiceInput 
-                      onTranscript={handleTranscript} 
-                      onInterimTranscript={handleInterimTranscript}
-                      disabled={isProcessing}
-                    />
-                    {showVoicePrompt && !isProcessing && (
-                      <p className="text-sm text-[#1877F2] font-medium animate-pulse">
-                        💬 Click to speak
-                      </p>
-                    )}
-                  </div>
+                )}
+                <div className="pt-4 border-t border-[#CCD0D5]">
+                  <button
+                    onClick={() => handleExplain('Why did you create this itinerary?')}
+                    disabled={!sessionId || isProcessing}
+                    className="btn-primary w-full text-sm"
+                  >
+                    Explain Itinerary
+                  </button>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Sources Tab Content */}
+            {activeTab === 'sources' && (
+              <div>
+                {sources && sources.length > 0 ? (
+                  <SourcesView sources={sources} />
+                ) : (
+                  <div className="text-center text-[#65676B] py-12">
+                    <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
+                      <span className="text-2xl">📚</span>
+                    </div>
+                    <p className="font-medium mb-1">No sources available yet</p>
+                    <p className="text-sm text-[#65676B]">Sources will appear after planning starts</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Empty state for itinerary tab when no itinerary */}
+            {!itinerary && activeTab === 'itinerary' && (
+              <div className="text-center text-[#65676B] py-12">
+                <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl">🗺️</span>
+                </div>
+                <p className="font-medium mb-1">No itinerary yet</p>
+                <p className="text-sm text-[#65676B]">Start planning to see your itinerary here</p>
+              </div>
+            )}
           </div>
-
-            {/* Right Panel - Itinerary & Sources (inside same outer card) */}
-            <div className="lg:col-span-1 flex flex-col gap-4 min-h-0">
-            {/* Tabs */}
-            <div className="p-1 flex gap-1 bg-[#F0F2F5] rounded-lg">
-              <button
-                onClick={() => setActiveTab('chat')}
-                className={`flex-1 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
-                  activeTab === 'chat'
-                    ? 'bg-[#1877F2] text-white shadow-md'
-                    : 'text-[#65676B] hover:text-[#050505] hover:bg-[#F0F2F5]'
-                }`}
-              >
-                Chat
-              </button>
-              {itinerary && (
-                <button
-                  onClick={() => setActiveTab('itinerary')}
-                  className={`flex-1 px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
-                    activeTab === 'itinerary'
-                      ? 'bg-[#1877F2] text-white shadow-md'
-                      : 'text-[#65676B] hover:text-[#050505] hover:bg-[#F0F2F5]'
-                  }`}
-                >
-                  Itinerary
-                </button>
-              )}
-              {itinerary && (
-                <button
-                  onClick={() => setActiveTab('sources')}
-                  className={`px-4 py-2 font-medium text-sm rounded-lg transition-all duration-200 ${
-                    activeTab === 'sources'
-                      ? 'bg-[#1877F2] text-white shadow-md'
-                      : 'text-[#65676B] hover:text-[#050505] hover:bg-[#F0F2F5]'
-                  }`}
-                >
-                  Sources {sources && sources.length > 0 && `(${sources.length})`}
-                </button>
-              )}
+          
+          {/* Input Section at Bottom - Always visible */}
+          <div className="border-t border-[#CCD0D5] bg-[#F0F2F5] p-4 flex-shrink-0">
+            {/* Error Display */}
+            {error && (
+              <div className="mb-3 p-3 bg-red-50 border-2 border-red-200 rounded-lg animate-fade-in">
+                <p className="text-sm text-red-800 font-medium flex items-center gap-2">
+                  <span>⚠️</span>
+                  {error}
+                </p>
+              </div>
+            )}
+            
+            {/* Text Input */}
+            <div className="mb-3">
+              <TextInput 
+                onSendMessage={handleTextMessage} 
+                disabled={isProcessing}
+                placeholder="Type your message or ask a question..."
+              />
             </div>
-
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto scrollbar-thin bg-white rounded-lg border border-[#CCD0D5]">
-              <div className="p-4">
-                {activeTab === 'itinerary' && itinerary && (
-                  <div className="space-y-4">
-                    <ItineraryView 
-                      itinerary={itinerary}
-                      onExplainActivity={handleExplainActivity}
-                      onGeneratePDF={handleGeneratePDF}
-                      isGeneratingPDF={isGeneratingPDF}
-                    />
-                    {currentExplanation && (
-                      <div className="mt-4 animate-fade-in">
-                        <ExplanationPanel explanation={currentExplanation} sources={explanationSources} />
-                      </div>
-                    )}
-                    {pdfUrl && (
-                      <div className="mt-4 p-4 bg-green-50 border-2 border-green-200 rounded-lg animate-fade-in">
-                        <p className="text-sm text-green-800 font-medium mb-2">✅ PDF generated successfully!</p>
-                        <a
-                          href={pdfUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-green-600 hover:underline font-medium"
-                        >
-                          Open PDF →
-                        </a>
-                      </div>
-                    )}
-                    <div className="pt-4 border-t border-slate-200">
-                      <button
-                        onClick={() => handleExplain('Why did you create this itinerary?')}
-                        disabled={!sessionId || isProcessing}
-                        className="btn-primary w-full text-sm"
-                      >
-                        Explain Itinerary
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'sources' && (
-                  <div>
-                    {sources && sources.length > 0 ? (
-                      <SourcesView sources={sources} />
-                    ) : (
-                      <div className="text-center text-[#65676B] py-12">
-                        <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
-                          <span className="text-2xl">📚</span>
-                        </div>
-                        <p className="font-medium mb-1">No sources available yet</p>
-                        <p className="text-sm text-[#65676B]">Sources will appear after planning starts</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {activeTab === 'chat' && (
-                  <div className="text-center text-[#65676B] py-12">
-                    <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
-                      <span className="text-2xl">💬</span>
-                    </div>
-                    <p className="font-medium mb-1">Chat messages appear in the left panel</p>
-                    <p className="text-sm text-[#65676B]">Use the tabs above to view itinerary and sources</p>
-                  </div>
-                )}
-
-                {!itinerary && activeTab === 'itinerary' && (
-                  <div className="text-center text-[#65676B] py-12">
-                    <div className="w-12 h-12 bg-[#E4E6EB] rounded-full flex items-center justify-center mx-auto mb-3">
-                      <span className="text-2xl">🗺️</span>
-                    </div>
-                    <p className="font-medium mb-1">No itinerary yet</p>
-                    <p className="text-sm text-[#65676B]">Start planning to see your itinerary here</p>
-                  </div>
+            
+            {/* Voice Input Option */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex items-center justify-center gap-4 w-full">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
+                <span className="text-xs font-medium text-[#65676B] uppercase tracking-wider">or</span>
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-[#CCD0D5] to-transparent"></div>
+              </div>
+              <div className="flex items-center gap-3">
+                <VoiceInput 
+                  onTranscript={handleTranscript} 
+                  onInterimTranscript={handleInterimTranscript}
+                  disabled={isProcessing}
+                />
+                {showVoicePrompt && !isProcessing && (
+                  <p className="text-sm text-[#1877F2] font-medium animate-pulse">
+                    💬 Click to speak
+                  </p>
                 )}
               </div>
-            </div>
             </div>
           </div>
         </div>
