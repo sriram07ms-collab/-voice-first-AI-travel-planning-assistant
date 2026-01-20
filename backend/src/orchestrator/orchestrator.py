@@ -1127,9 +1127,11 @@ CRITICAL RULES:
 - If the user input is a short response (like "Jaipur" or "3"), consider it as an answer to the most recent clarifying question.
 - ONLY return fields that are explicitly mentioned or can be inferred from the context.
 - DO NOT return null or empty arrays for fields that already have values in existing preferences UNLESS the user explicitly changes them.
-- For interests: If user mentions "shopping", "food", "culture", etc., ADD them to existing interests (don't replace).
+- For interests: ONLY return interests if the user explicitly mentions them (e.g., "food", "shopping", "culture", "nature"). DO NOT infer or assume interests. If interests are mentioned, ADD them to existing interests (don't replace).
+- If no interests are mentioned in the user input, return an empty array [] for interests (or null if no existing interests).
 - If existing preferences already have a city, duration, or interests, DO NOT return null for those fields unless user explicitly changes them.
 - Preserve ALL existing preferences that are not mentioned in the current input.
+- NEVER assume or infer interests like "food", "shopping", or "culture" unless explicitly stated by the user.
 
 Only return JSON, no other text."""
         

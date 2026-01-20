@@ -787,7 +787,12 @@ Only return JSON, no other text."""
             logger.warning("Cannot add day without city")
             return itinerary
         
-        interests = preferences.get("interests", ["culture", "food"])
+        # Check if interests are provided - don't assume defaults
+        interests = preferences.get("interests", [])
+        if not interests or len(interests) == 0:
+            logger.warning("Cannot add day without interests. User needs to specify their preferences first.")
+            return itinerary
+        
         pace = preferences.get("pace", "moderate")
         
         # Determine search location: if place_name provided, search for "place_name, city"
@@ -1095,7 +1100,11 @@ Only return JSON, no other text."""
                                     existing_pois.add(act["activity"].lower())
             
             # Search for new POIs
-            interests = preferences.get("interests", ["culture", "food"])
+            interests = preferences.get("interests", [])
+            if not interests or len(interests) == 0:
+                logger.warning("Cannot regenerate time block without interests. User needs to specify their preferences first.")
+                return itinerary
+            
             pois = self.mcp_client.search_pois(
                 city=city,
                 interests=interests,
