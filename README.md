@@ -65,52 +65,61 @@ This system bridges that gap by providing an AI assistant that creates realistic
 
 ## 🏗️ System Architecture
 
+The system is organized into four main layers:
+
+- **User Interface Layer**: Next.js frontend with voice input, itinerary display, live transcript, and sources.
+- **Orchestration Layer (LLM + MCP)**: Python backend that manages conversation state, intent recognition, and calls MCP tools.
+- **Data & Knowledge Layer**: RAG over travel content plus live APIs (OpenStreetMap, Wikivoyage, weather).
+- **Evaluation Layer**: Feasibility, edit-correctness, and grounding evaluators used in tests and runtime.
+
+High‑level architecture diagram:
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         User Interface Layer                      │
+│                       User Interface Layer                     │
 │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
 │  │ Voice Input  │  │ Companion UI │  │ Live Transcript     │   │
 │  │ (STT)        │  │ (Itinerary)  │  │ & Sources Display   │   │
 │  └──────┬───────┘  └──────┬───────┘  └─────────────────────┘   │
-└─────────┼──────────────────┼─────────────────────────────────────┘
+└─────────┼──────────────────┼────────────────────────────────────┘
           │                  │
-┌─────────┼──────────────────┼─────────────────────────────────────┐
-│         │  Orchestration Layer (LLM + MCP)                       │
-│  ┌──────▼──────────────────▼─────────────────────┐              │
-│  │  Main Orchestrator (LLM)                      │              │
-│  │  - Intent Recognition                          │              │
-│  │  - Conversation Management                     │              │
-│  │  - Decision Explanation                        │              │
-│  └──────┬──────────────────┬─────────────────────┘              │
-│         │                  │                                     │
+┌─────────┼──────────────────┼────────────────────────────────────┐
+│         │        Orchestration Layer (LLM + MCP)               │
+│  ┌──────▼──────────────────▼─────────────────────┐             │
+│  │  Main Orchestrator (LLM)                      │             │
+│  │  - Intent Recognition                         │             │
+│  │  - Conversation Management                    │             │
+│  │  - Decision Explanation                       │             │
+│  └──────┬──────────────────┬─────────────────────┘             │
+│         │                  │                                   │
 │  ┌──────▼──────┐  ┌────────▼─────────┐  ┌──────────────┐      │
-│  │ POI Search  │  │ Itinerary Builder│  │ Travel Time   │      │
-│  │ MCP Tool    │  │ MCP Tool         │  │ Estimator MCP │      │
+│  │ POI Search  │  │ Itinerary Builder│  │ Travel/Weather│      │
+│  │ MCP Tool    │  │ MCP Tool         │  │ MCP Tools     │      │
 │  └─────────────┘  └──────────────────┘  └──────────────┘      │
-└─────────┼───────────────────────────────────────────────────────┘
+└─────────┼──────────────────────────────────────────────────────┘
           │
-┌─────────▼───────────────────────────────────────────────────────┐
-│                    Data & Knowledge Layer                        │
+┌─────────▼──────────────────────────────────────────────────────┐
+│                    Data & Knowledge Layer                      │
 │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
 │  │ RAG System   │  │ OpenStreetMap│  │ Weather API         │   │
 │  │ (Wikivoyage) │  │ (Overpass)   │  │ (Open-Meteo)        │   │
 │  └──────────────┘  └──────────────┘  └─────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────┘
           │
-┌─────────▼───────────────────────────────────────────────────────┐
-│                    Evaluation Layer                              │
+┌─────────▼──────────────────────────────────────────────────────┐
+│                        Evaluation Layer                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────────┐   │
 │  │ Feasibility  │  │ Edit         │  │ Grounding &         │   │
 │  │ Evaluator    │  │ Correctness  │  │ Hallucination Check │   │
 │  └──────────────┘  └──────────────┘  └─────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────────┘
           │
-┌─────────▼───────────────────────────────────────────────────────┐
-│                    External Services                             │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ n8n Workflow: PDF Generation + Email                     │   │
-│  └──────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────▼──────────────────────────────────────────────────────┐
+│                      External Services                         │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │ n8n Workflow: PDF Generation + Email                     │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ## 🔧 Technology Stack
@@ -141,6 +150,16 @@ This system bridges that gap by providing an AI assistant that creates realistic
 - **n8n**: Self-hosted or n8n.cloud
 - **PDF**: Puppeteer / pdfkit
 - **Email**: SMTP / SendGrid
+
+## 🧩 MCP Tools Used
+
+The backend exposes three MCP tools (see `mcp-tools/`):
+
+- **POI Search MCP** (`mcp-tools/poi-search/server.py`): Queries OpenStreetMap/Overpass for POIs matching city, interests, and constraints, returning ranked POIs with metadata and `source_id`s.
+- **Itinerary Builder MCP** (`mcp-tools/itinerary-builder/server.py`): Takes candidate POIs and user constraints and returns a structured, day‑wise itinerary.
+- **Weather MCP (optional)** (`mcp-tools/weather/server.py`): Looks up forecast data so the orchestrator can adjust plans for weather.
+
+These MCP tools are called from the backend orchestrator layer (see `backend/src/orchestrator/`), and can also be run independently as MCP servers.
 
 ## 📁 Project Structure
 
@@ -278,11 +297,11 @@ See [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) for detailed step-by-st
 - ✅ Edit intent correctly interpreted
 
 ### Grounding & Hallucination Evaluation
-- ✅ All POIs have valid OpenStreetMap source_id
+- ✅ All POIs have valid OpenStreetMap `source_id`
 - ✅ All tips cite Wikivoyage URLs
 - ✅ Missing data explicitly stated ("I couldn't find opening hours for X")
 
-## 📊 Data Requirements
+## 📊 Datasets & External APIs
 
 ### Required Data Sources
 1. **OpenStreetMap (Overpass API)**
@@ -297,28 +316,33 @@ See [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) for detailed step-by-st
    - Cultural context
    - Indoor alternatives
 
-### Rules
-- All POIs must map back to dataset records
-- Travel tips must come from RAG sources
-- If data is missing, system must explicitly state so
-- No hallucinated claims
+### Data Quality & Grounding Rules
+- All POIs must map back to dataset records (e.g., OpenStreetMap `source_id`).
+- Travel tips must come from RAG sources with citations.
+- If data is missing, the system must explicitly state so.
+- No hallucinated claims about locations, opening hours, or safety.
 
-## 🔌 MCP Integration Requirements
+## 🔍 How to Run Evals
 
-### Required MCP Tools
+All tests use `pytest` from the repo root (ensure `backend` dependencies are installed first).
 
-1. **POI Search MCP**
-   - Inputs: city, interests, constraints
-   - Outputs: ranked POIs with metadata
-   - Must demonstrate clear MCP calls in demo
+- **Feasibility evaluator**: `pytest tests/test_feasibility.py -v`
+- **Edit correctness evaluator**: `pytest tests/test_edits.py -v`
+- **Grounding & hallucination evaluator**: `pytest tests/test_grounding.py -v`
+- **End‑to‑end integration flows**: `pytest tests/test_integration.py -v`
+- **Additional phase tests**: `pytest tests/test_phase*.py -v`
 
-2. **Itinerary Builder MCP**
-   - Inputs: candidate POIs, daily time windows, pace
-   - Outputs: structured day-wise itinerary
+Each evaluator can also be imported directly from `backend/src/evaluation/` for programmatic evaluation.
 
-### Optional MCP Tools (Bonus)
-- Travel Time Estimator MCP
-- Weather Adjustment MCP
+## 🗣️ Sample Test Conversation Transcript
+
+This is an example of an end‑to‑end interaction the system is designed to handle:
+
+1. **User**: "Plan a 3‑day trip to Jaipur next weekend. I like food and culture, relaxed pace."
+2. **Assistant**: Asks up to a few clarifying questions (dates, party size, budget).
+3. **Assistant**: Returns a 3‑day itinerary with morning/afternoon/evening blocks, travel times, and cited sources.
+4. **User**: "Make Day 2 more relaxed and add one famous local food place."
+5. **Assistant**: Applies a focused edit to Day 2 only, re‑runs feasibility/grounding checks, and explains what changed and why.
 
 ## 🚢 Deployment
 
