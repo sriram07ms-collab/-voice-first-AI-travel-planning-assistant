@@ -54,6 +54,7 @@ def get_city_coordinates(
     """
     # Normalize city name (handle common variations)
     city_normalized = city.strip()
+    city_lower = city_normalized.lower()
     
     # Special handling for Indian cities with common variations
     indian_city_fixes = {
@@ -67,14 +68,35 @@ def get_city_coordinates(
         "jaipur": "Jaipur, Rajasthan, India"
     }
     
-    # Build query string with fallback strategies
-    query_parts = [city_normalized]
-    if state:
-        query_parts.append(state)
-    if country:
-        query_parts.append(country)
+    # Indian city to state mapping (for when country is India but state not provided)
+    indian_city_states = {
+        "chennai": "Tamil Nadu",
+        "mumbai": "Maharashtra",
+        "delhi": "Delhi",
+        "new delhi": "Delhi",
+        "bangalore": "Karnataka",
+        "hyderabad": "Telangana",
+        "kolkata": "West Bengal",
+        "pune": "Maharashtra",
+        "jaipur": "Rajasthan"
+    }
     
-    query = ", ".join(query_parts)
+    # If country is India and city is in our mapping but state not provided, use the fix directly
+    if country and country.lower() == "india" and not state and city_lower in indian_city_fixes:
+        query = indian_city_fixes[city_lower]
+        logger.info(f"Using enhanced geocoding query for Indian city: {query}")
+    else:
+        # Build query string with fallback strategies
+        query_parts = [city_normalized]
+        if state:
+            query_parts.append(state)
+        # If country is India and we have state mapping but state not provided, add state
+        elif country and country.lower() == "india" and city_lower in indian_city_states:
+            query_parts.append(indian_city_states[city_lower])
+        if country:
+            query_parts.append(country)
+        
+        query = ", ".join(query_parts)
     
     # Rate limit
     _rate_limit()

@@ -1038,11 +1038,27 @@ class TravelOrchestrator:
                     preferences["duration_days"] = int(duration_match.group(1))
                     logger.info(f"Extracted duration from short response: {preferences['duration_days']}")
             elif "interest" in last_question.lower():
-                # This might be interests
-                interests = [i.strip() for i in user_input.split(',')]
+                # This might be interests - handle both comma and "and" separators
+                # Split by comma first, then split each part by "and"
+                interests = []
+                # Split by comma
+                parts = [p.strip() for p in user_input.split(',')]
+                for part in parts:
+                    # Split by "and" as well
+                    if ' and ' in part.lower():
+                        sub_parts = re.split(r'\s+and\s+', part, flags=re.IGNORECASE)
+                        interests.extend([p.strip() for p in sub_parts if p.strip()])
+                    else:
+                        interests.append(part)
+                # Clean up and filter empty strings
+                interests = [i.strip().lower() for i in interests if i.strip()]
                 existing = preferences.get("interests", [])
-                preferences["interests"] = list(set(existing + interests))
-                logger.info(f"Extracted interests from short response: {interests}")
+                # Normalize existing interests to lowercase for comparison
+                existing_normalized = [i.lower() for i in existing]
+                # Only add new interests that aren't already present
+                new_interests = [i for i in interests if i not in existing_normalized]
+                preferences["interests"] = existing + new_interests
+                logger.info(f"Extracted interests from short response: {interests} (new: {new_interests})")
             elif "pace" in last_question.lower():
                 # This might be pace
                 user_lower = user_input.lower()
@@ -1127,7 +1143,12 @@ CRITICAL RULES:
 - If the user input is a short response (like "Jaipur" or "3"), consider it as an answer to the most recent clarifying question.
 - ONLY return fields that are explicitly mentioned or can be inferred from the context.
 - DO NOT return null or empty arrays for fields that already have values in existing preferences UNLESS the user explicitly changes them.
-- For interests: ONLY return interests if the user explicitly mentions them (e.g., "food", "shopping", "culture", "nature"). DO NOT infer or assume interests. If interests are mentioned, ADD them to existing interests (don't replace).
+- For interests: ONLY return interests if the user explicitly mentions them (e.g., "food", "shopping", "culture", "nature"). 
+  * Handle multiple interests: "food and shopping", "shopping, culture", "food, shopping, culture" - extract ALL mentioned interests
+  * If user says "food and shopping", return ["food", "shopping"] (both interests)
+  * If user says "shopping and culture", return ["shopping", "culture"] (both interests)
+  * DO NOT infer or assume interests. If interests are mentioned, ADD them to existing interests (don't replace).
+  * Return ALL interests the user mentions - ensure combinations are captured correctly
 - If no interests are mentioned in the user input, return an empty array [] for interests (or null if no existing interests).
 - If existing preferences already have a city, duration, or interests, DO NOT return null for those fields unless user explicitly changes them.
 - Preserve ALL existing preferences that are not mentioned in the current input.

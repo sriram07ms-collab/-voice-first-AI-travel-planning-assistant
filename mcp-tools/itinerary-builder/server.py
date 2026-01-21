@@ -438,32 +438,74 @@ def build_itinerary_mcp(
             for tw in daily_time_windows
         ])
         
-        # Check if food is a primary interest
-        has_food_interest = False
+        # Extract all interests from preferences
+        interests_list = []
         if preferences:
-            # Check if "food" key exists and is True, or if any key contains "food" (case-insensitive)
-            has_food_interest = (
-                preferences.get("food") is True or
-                any("food" in str(k).lower() for k in preferences.keys() if preferences.get(k) is True)
-            )
+            # Check if interests is a list
+            if "interests" in preferences and isinstance(preferences.get("interests"), list):
+                interests_list = [i.lower() for i in preferences.get("interests", [])]
+            # Also check for individual interest flags (legacy support)
+            interest_flags = ["food", "culture", "shopping", "nature", "nightlife", "beaches", "religion", "historical"]
+            for interest in interest_flags:
+                if preferences.get(interest) is True and interest not in interests_list:
+                    interests_list.append(interest.lower())
         
-        # Build system prompt with food-specific instructions if needed
-        food_priority_instructions = ""
-        if has_food_interest:
-            food_priority_instructions = """
+        # Build interest-specific instructions
+        interest_instructions = ""
+        if interests_list:
+            # If multiple interests, ensure balanced coverage
+            if len(interests_list) > 1:
+                interests_str = ", ".join(interests_list)
+                interest_instructions = f"""
+MULTIPLE INTERESTS COVERAGE (CRITICAL):
+- User has specified multiple interests: {interests_str}
+- You MUST include activities covering ALL of these interests in the itinerary
+- Balance activities across all interests - do not focus on only one interest
+- Distribute activities evenly so each interest is well-represented throughout the trip
+- For example, if user has "food" and "shopping" interests:
+  * Include restaurants/cafes (food) AND shopping malls/markets/stores (shopping)
+  * Balance food experiences with shopping experiences across all days
+  * Alternate or combine activities from both interests throughout each day
+- Same applies for any combination: "food and culture", "shopping and culture", etc.
+- Each day should ideally include activities from multiple interests (if space allows)
+- Ensure the final itinerary reflects a good mix of ALL mentioned interests
+"""
+            # If single interest, provide focused guidance
+            elif len(interests_list) == 1:
+                single_interest = interests_list[0]
+                if single_interest == "food":
+                    interest_instructions = """
 FOOD INTEREST PRIORITY (CRITICAL):
-- When "food" is in user preferences, RESTAURANTS, CAFES, and FOOD PLACES are the PRIMARY focus
+- When "food" is the primary interest, RESTAURANTS, CAFES, and FOOD PLACES are the PRIMARY focus
 - Include multiple food experiences throughout each day (breakfast, lunch, dinner, snacks)
-- Prioritize restaurants/cafes over other attractions when food is the main interest
-- For food-focused itineraries: aim for 2-3 food experiences per day (restaurants, cafes, food markets, street food)
+- Aim for 2-3 food experiences per day (restaurants, cafes, food markets, street food)
 - Include restaurants/cafes in morning (breakfast), afternoon (lunch), and evening (dinner) time slots
-- If food is the ONLY or PRIMARY interest, make restaurants/cafes the majority of activities
+- Make restaurants/cafes the majority of activities
 - Group food places with nearby attractions when possible, but prioritize food experiences
 """
+                elif single_interest == "shopping":
+                    interest_instructions = """
+SHOPPING INTEREST PRIORITY (CRITICAL):
+- When "shopping" is the primary interest, prioritize SHOPPING MALLS, MARKETS, and STORES
+- Include shopping experiences throughout each day
+- Look for shopping malls, markets, local stores, and shopping districts
+- Combine shopping with brief food breaks nearby
+"""
+                elif single_interest == "culture":
+                    interest_instructions = """
+CULTURE INTEREST PRIORITY (CRITICAL):
+- When "culture" is the primary interest, prioritize MUSEUMS, GALLERIES, TEMPLES, and HISTORICAL SITES
+- Include cultural experiences throughout each day
+- Look for museums, art galleries, monuments, temples, and cultural attractions
+- Allow sufficient time for cultural sites as they typically require more time
+"""
+        
+        # Legacy food check (for backward compatibility)
+        has_food_interest = "food" in interests_list if interests_list else False
         
         system_prompt = f"""You are an expert travel itinerary planner. Create realistic, feasible day-wise itineraries 
 that group nearby attractions, respect time constraints, and match the user's pace preference.
-{food_priority_instructions}
+{interest_instructions}
 
 Return a JSON object with this exact structure:
 {{
@@ -541,11 +583,21 @@ CRITICAL RULES - FOLLOW EXACTLY:
 
 Only return valid JSON, no other text."""
         
-        # Build user prompt with food emphasis
+        # Build user prompt with interest emphasis
         preferences_text = json.dumps(preferences or {}, indent=2)
-        food_emphasis = ""
-        if has_food_interest:
-            food_emphasis = "\n\nIMPORTANT: The user has FOOD as a primary interest. Prioritize restaurants, cafes, and food places. Include multiple food experiences throughout each day (breakfast, lunch, dinner, snacks). Make food experiences the focus of this itinerary."
+        interest_emphasis = ""
+        if interests_list:
+            if len(interests_list) > 1:
+                interests_str = ", ".join(interests_list)
+                interest_emphasis = f"\n\nCRITICAL: The user has MULTIPLE interests: {interests_str}. You MUST create an itinerary that includes activities covering ALL of these interests. Balance activities across all interests - ensure each interest is well-represented throughout the trip. Do not focus on only one interest."
+            elif len(interests_list) == 1:
+                single_interest = interests_list[0]
+                if single_interest == "food":
+                    interest_emphasis = "\n\nIMPORTANT: The user has FOOD as a primary interest. Prioritize restaurants, cafes, and food places. Include multiple food experiences throughout each day (breakfast, lunch, dinner, snacks). Make food experiences the focus of this itinerary."
+                elif single_interest == "shopping":
+                    interest_emphasis = "\n\nIMPORTANT: The user has SHOPPING as a primary interest. Prioritize shopping malls, markets, stores, and shopping districts. Include shopping experiences throughout each day."
+                elif single_interest == "culture":
+                    interest_emphasis = "\n\nIMPORTANT: The user has CULTURE as a primary interest. Prioritize museums, galleries, temples, monuments, and historical sites. Include cultural experiences throughout each day."
         
         # Enhanced user prompt with specific instructions
         user_prompt = f"""Create a {num_days}-day itinerary with pace: {pace}
@@ -558,7 +610,7 @@ Time Windows (STRICT - must respect these):
 
 User Preferences:
 {preferences_text}
-{food_emphasis}
+{interest_emphasis}
 
 IMPORTANT INSTRUCTIONS:
 1. PROXIMITY GROUPING: Check lat/lon coordinates. POIs with similar coordinates (within ~2km) should be grouped together on the same day/time block to minimize travel time.
