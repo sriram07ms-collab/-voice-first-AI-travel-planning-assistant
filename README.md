@@ -133,39 +133,42 @@ High‑level architecture diagram:
 ## 🔧 Technology Stack
 
 ### Frontend
-- **Framework**: Next.js 14+ (React) or Lovable
+- **Framework**: Next.js 14 (React) SPA
 - **Styling**: TailwindCSS
-- **Voice**: Web Speech API (speech-to-text)
-- **Deployment**: Vercel / Netlify
+- **Voice**: Web Speech API (browser speech‑to‑text) + text input
+- **Maps & Travel Time**: Google Maps JavaScript / embed + backend travel time API (Google Maps Directions)
+- **Deployment**: GitHub Pages via GitHub Actions (`deploy-frontend-pages.yml`)
 
 ### Backend
-- **Framework**: Python FastAPI (recommended) or Node.js/Express
-- **LLM**: Grok API (xAI) - `grok-beta` model
-- **Voice API**: Grok Voice API for speech-to-text
-- **Orchestration**: LangChain / LangGraph
-- **MCP**: Model Context Protocol SDK
-- **Deployment**: Railway / Render / Fly.io
+- **Framework**: Python FastAPI
+- **LLM Provider**: Groq API (xAI)
+- **LLM Model**: `llama3-70b-8192` (configured via `GROQ_MODEL`)
+- **Conversation Orchestration**: Custom `TravelOrchestrator` (intent classification, session management, MCP calls)
+- **MCP**: Model Context Protocol servers for POI search, itinerary building, and weather
+- **Deployment**: Render (containerized backend with persistent ChromaDB volume)
 
 ### Data & RAG
-- **Vector DB**: ChromaDB (local) or Pinecone (cloud)
+- **Vector DB**: ChromaDB (local persistent store, see `backend/src/rag/vector_store.py`)
 - **Embeddings**: OpenAI `text-embedding-3-small`
-- **Data Sources**: 
-  - OpenStreetMap (Overpass API)
-  - Wikivoyage / Wikipedia
-  - Open-Meteo API (optional)
+- **Primary Data Sources**:
+  - Google Places API (POIs and rich place metadata)
+  - Google Maps Directions API (real‑time travel time and distance)
+  - OpenStreetMap (Overpass API) as POI fallback and for `source_id` grounding
+  - Wikivoyage / Wikipedia (city guides, tips, safety, cultural context)
+  - Open‑Meteo API (weather forecasts used in planning and explanations)
 
 ### External Services
-- **n8n**: Self-hosted or n8n.cloud
-- **PDF**: Puppeteer / pdfkit
-- **Email**: SMTP / SendGrid
+- **n8n**: Self‑hosted or n8n.cloud for PDF + email workflow
+- **PDF**: External HTML→PDF service (e.g. htmlpdfapi.com or Gotenberg) called from n8n
+- **Email**: SMTP (typically Gmail App Password) configured in n8n
 
 ## 🧩 MCP Tools Used
 
-The backend exposes three MCP tools (see `mcp-tools/`):
+The backend exposes three core MCP tools (see `mcp-tools/`):
 
-- **POI Search MCP** (`mcp-tools/poi-search/server.py`): Queries OpenStreetMap/Overpass for POIs matching city, interests, and constraints, returning ranked POIs with metadata and `source_id`s.
-- **Itinerary Builder MCP** (`mcp-tools/itinerary-builder/server.py`): Takes candidate POIs and user constraints and returns a structured, day‑wise itinerary.
-- **Weather MCP (optional)** (`mcp-tools/weather/server.py`): Looks up forecast data so the orchestrator can adjust plans for weather.
+- **POI Search MCP** (`mcp-tools/poi-search/server.py`): Uses Google Places API first (with OpenStreetMap/Overpass fallback) to find POIs for a given city, interests, and constraints, returning ranked POIs with metadata and `source_id`s.
+- **Itinerary Builder MCP** (`mcp-tools/itinerary-builder/server.py`): Takes candidate POIs and user constraints and returns a structured, day‑wise itinerary that respects pace and feasibility rules.
+- **Weather MCP** (`mcp-tools/weather/server.py`): Calls Open‑Meteo and related weather data sources so the orchestrator can answer *“What if it rains?”* and adjust itineraries for weather.
 
 These MCP tools are called from the backend orchestrator layer (see `backend/src/orchestrator/`), and can also be run independently as MCP servers.
 
@@ -312,23 +315,25 @@ See [IMPLEMENTATION_GUIDE.md](./IMPLEMENTATION_GUIDE.md) for detailed step-by-st
 ## 📊 Datasets & External APIs
 
 ### Required Data Sources
-1. **OpenStreetMap (Overpass API)**
-   - Points of Interest (POIs)
-   - Location data (lat/lon)
-   - Categories and metadata
-   - Source IDs for grounding
+1. **Google Places + Maps APIs**
+   - Primary POI search (places, ratings, types, coordinates)
+   - Real‑time travel time and distance between stops
+   - Used by POI Search MCP and travel time estimator
 
-2. **Wikivoyage / Wikipedia**
+2. **OpenStreetMap (Overpass API)**
+   - Fallback POI search when Google APIs are unavailable
+   - Location data (lat/lon), categories, metadata
+   - Stable `source_id`s for grounding and evaluation
+
+3. **Wikivoyage / Wikipedia**
    - City guides and travel tips
    - Safety information
    - Cultural context
    - Indoor alternatives
 
-### Data Quality & Grounding Rules
-- All POIs must map back to dataset records (e.g., OpenStreetMap `source_id`).
-- Travel tips must come from RAG sources with citations.
-- If data is missing, the system must explicitly state so.
-- No hallucinated claims about locations, opening hours, or safety.
+4. **Open‑Meteo**
+   - Daily/hourly weather forecast for trip dates
+   - Used by the Weather MCP and explanation generator
 
 ## 🔍 How to Run Evals
 
@@ -355,12 +360,12 @@ This is an example of an end‑to‑end interaction the system is designed to ha
 ## 🚢 Deployment
 
 ### Frontend
-- Deploy to Vercel or Netlify
+- Deploy to Githubpages
 - Connect to backend API URL
 - Ensure environment variables are set
 
 ### Backend
-- Deploy to Railway, Render, or Fly.io
+- Deploy to Render
 - Set environment variables
 - Ensure ChromaDB persistence works
 - Health check endpoint: `/health`
