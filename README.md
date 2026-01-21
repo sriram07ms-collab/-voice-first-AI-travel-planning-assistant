@@ -38,19 +38,27 @@ This system bridges that gap by providing an AI assistant that creates realistic
 - Confirms constraints before generating plan
 
 ### 2. Voice-Based Editing
-- Supports edits like:
-  - *"Make Day 2 more relaxed"*
-  - *"Swap the Day 1 evening plan to something indoors"*
-  - *"Reduce travel time"*
-  - *"Add one famous local food place"*
-- Only modifies affected itinerary sections
+- Supports comprehensive edit operations:
+  - **Change Pace**: *"Make Day 2 more relaxed"* or *"Make Day 1 faster"*
+  - **Swap Entire Days**: *"Swap Day 1 with Day 2"* or *"Swap day 1 itinerary with day 2"*
+  - **Move Time Blocks**: *"Swap Day 1 evening with Day 2 evening"* or *"Move Day 1 morning to Day 2 afternoon"*
+  - **Add Activities**: *"Add one famous local food place"* or *"Add a museum to Day 2"*
+  - **Add Days**: *"Add one more day"* or *"Extend the itinerary"*
+  - **Remove Activities**: *"Remove the shopping stop from Day 2"*
+  - **Reduce Travel Time**: *"Reduce travel time between activities"*
+  - **Regenerate Time Blocks**: *"Plan something new for Day 1 evening"*
+- Handles voice transcription variations (e.g., "play one" = "swap day 1")
+- Only modifies affected itinerary sections, preserving unchanged days and activities
 
 ### 3. Explanation & Reasoning
-- Answers questions:
-  - *"Why did you pick this place?"*
-  - *"Is this plan doable?"*
-  - *"What if it rains?"*
-- Provides grounded explanations with citations
+- Answers various question types with grounded explanations:
+  - **POI Selection**: *"Why did you pick Hawa Mahal?"* or *"Why did you pick this place?"*
+  - **Timing Questions**: *"Why is this activity scheduled at this time?"*
+  - **Feasibility**: *"Is this plan doable?"* or *"Is this itinerary feasible?"*
+  - **Weather Scenarios**: *"What if it rains?"* or *"What's the weather forecast?"*
+  - **General Questions**: Any other questions about the itinerary
+- Provides explanations with citations from Wikivoyage, OpenStreetMap, and weather APIs
+- Uses RAG (Retrieval-Augmented Generation) to ground responses in real travel data
 
 ### 4. Companion UI
 - Day-wise itinerary display (Day 1 / Day 2 / Day 3)
